@@ -44,3 +44,47 @@
     align-items: start;
     gap: 90px;
 }
+.notservicable{
+  width: 100%;
+  height: 200px;
+  background-color: white;
+  justify-content: start;
+  align-items: start;
+  display: flex;
+}
+.banneritems{
+  width:50%;
+  height: 100%;
+  background: linear-gradient(135deg, #F7D76B 0%, #F2C94C 50%, #E6B93C 100%);
+  border-radius: 12px;
+  justify-content: start;
+  align-items: start;
+  display: flex;
+  flex-direction: column;
+}
+.bannercontents{
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+  align-items: start;
+  gap: 20px;
+}
+.mapobj{
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 20px;
+}
+.nonservicabletext{
+  height: 100%;
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: start;
+  margin-right: 20px;
+  /* font-size: 10px; */
+  /* gap: 20px; */
+}

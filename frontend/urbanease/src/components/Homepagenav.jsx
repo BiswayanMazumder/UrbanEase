@@ -24,7 +24,7 @@ export default function HomepageNavBar() {
                             data?.address?.village ||
                             data?.address?.state ||
                             "Your location";
-
+                        console.log("Detected city:", cityName);
                         setCity(cityName);
                     } catch (error) {
                         console.error("Error fetching location:", error);
