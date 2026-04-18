@@ -1,0 +1,45 @@
+.offertabs {
+  background-color: white;
+  color: black;
+  display: flex;
+  justify-content: start;
+  align-items: start;
+}
+
+.offerssections {
+  width: 100%;
+  font-family: "Roboto", sans-serif;
+  margin-left: 10vw;
+  margin-top: 20px;
+  font-size: 20px;
+}
+
+.offerbanners {
+  width: 100%;
+  margin-top: 20px;
+  display: flex;
+  justify-content: start;
+  align-items: start;
+  gap: 30px;
+}
+
+/* Image styling */
+.bannerimg {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Hover effect */
+.bannerimg:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+.bigbanneroffers{
+    width: 100%;
+    margin-top: 50px;
+    display: flex;
+    justify-content: start;
+    align-items: start;
+    gap: 30px;
+}
