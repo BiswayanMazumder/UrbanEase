@@ -40,7 +40,20 @@ export default function Homepagedetailsservicable() {
                                         <p>Home Painting</p>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                        <div className="ieijfkjdjf">
+                            <div className="dknkdmvdv">
+                                <img
+                                    src="https://www.urbancompany.com/img?quality=90&format=auto/w_48,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1693570188661-dba2e7.jpeg"
+                                    alt="star"
+                                    className="star-icon"
+                                />
 
+                                <div className="hbvjdjv">
+                                    <p className="rating">4.8</p>
+                                    <p className="label">Service Rating*</p>
+                                </div>
                             </div>
                         </div>
                     </div>
