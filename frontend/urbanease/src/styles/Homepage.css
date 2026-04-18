@@ -76,17 +76,34 @@
   align-items: center;
   display: flex;
 }
-
-.cartsvg{
+.cartsvg, .profilesvg, .locationdropdown {
+  cursor: pointer;
+}
+.cartsvg {
   height: 40px;
   width: 40px;
   border-radius: 50%;
-  border: 2px solid #eaeaea;
+  border: 1px solid #e5e5e5;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  box-sizing: border-box;
 }
 .profilesvg{
-  height: 40px;
-  width: 40px;
   border-radius: 50%;
-  border: 2px solid #eaeaea;
+  /* border: 1px solid #e5e5e5; */
   margin-left: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  box-sizing: border-box;
+}
+.searchbartext{
+  color: #757575;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  margin-left: 10px;
 }
