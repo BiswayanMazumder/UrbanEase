@@ -31,6 +31,14 @@ export default function HomepageOfferandDiscount() {
             height="410"
             className="bannerimg"
           />
+          <img
+            src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776067912293-b1176c.jpeg"
+            alt="Offer 2"
+            // width=""
+            height="410"
+            // marginTop="90px"
+            className="bannerimg"
+          />
         </div>
       </div>
     </div>
