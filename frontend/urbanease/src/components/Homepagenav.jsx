@@ -5,7 +5,37 @@ export default function HomepageNavBar() {
     const [text, setText] = useState("");
     const [wordIndex, setWordIndex] = useState(0);
     const [charIndex, setCharIndex] = useState(0);
+    const [city, setCity] = useState("Detecting...");
+    useEffect(() => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
 
+                    try {
+                        const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                        );
+                        const data = await res.json();
+
+                        const cityName =
+                            data?.address?.city ||
+                            data?.address?.town ||
+                            data?.address?.village ||
+                            data?.address?.state ||
+                            "Your location";
+
+                        setCity(cityName);
+                    } catch (error) {
+                        console.error("Error fetching location:", error);
+                    }
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                }
+            );
+        }
+    }, []);
     useEffect(() => {
         const currentWord = words[wordIndex];
 
@@ -58,7 +88,7 @@ export default function HomepageNavBar() {
                     </svg>
                 </span>
                 <div className="locationtext" >
-                    <span className="locationtext1">Select your city</span>
+                    <span className="locationtext1">{city}</span>
                 </div>
                 <div className="drowndownlocation" id="Searchbar">
                     <svg

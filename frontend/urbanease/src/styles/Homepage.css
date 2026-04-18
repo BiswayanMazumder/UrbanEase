@@ -54,10 +54,15 @@
 }
 
 .locationtext1 {
-  font-size: 15px;
+  font-size: 13px;
   margin-left: 8px;
   color: #757575;
   font-family: "Roboto", sans-serif;
+
+  /* ✅ ADD THESE */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drowndownlocation {
