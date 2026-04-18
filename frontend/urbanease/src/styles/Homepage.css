@@ -1,0 +1,92 @@
+.home {
+  background-color: white;
+  color: black;
+  /* min-height: 100vh; */
+  display: flex;
+  justify-content: start;
+  align-items: start;
+
+}
+
+.home h1 {
+  font-size: 40px;
+}
+
+.homenavbar {
+  background-color: white;
+  color: black;
+  height: 12vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: sticky;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.logoplaceholder {
+  height: 100%;
+  width: 10vw;
+  /* margin-bottom: 30px; */
+  margin-left: 5vw;
+  background-color: white;
+  align-items: center;
+  display: flex;
+  justify-content: start;
+}
+
+.locationdropdown {
+  background-color: white;
+  margin-left: 30px;
+  height: 60%;
+  width: 20%;
+  border-radius: 10px;
+  border: 1px solid #eaeaea;
+  align-items: center;
+  justify-content: flex-start;
+  display: flex;
+  left: 0;
+}
+
+.locationsvg {
+  margin-left: 10px;
+  margin-top: 2px;
+}
+
+.locationtext1 {
+  font-size: 15px;
+  margin-left: 8px;
+  color: #757575;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+.drowndownlocation {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+.loginandcart{
+  width:150px;
+  height: 50px;
+  background-color: white;
+  margin-left: 50px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.cartsvg{
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  border: 2px solid #eaeaea;
+}
+.profilesvg{
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  border: 2px solid #eaeaea;
+  margin-left: 30px;
+}
