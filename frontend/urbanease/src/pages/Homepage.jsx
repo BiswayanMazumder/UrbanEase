@@ -5,9 +5,11 @@ import HomepageNavBar from "../components/Homepagenav.jsx";
 import HomepageOfferandDiscount from "../components/Homepageofferanddiscount.jsx";
 import { useEffect, useState } from "react";
 import Homepagedetailsservicable from "../components/Homepagedetailsservicable.jsx";
+import LocationLoader from "../components/LocationLoader.jsx";
 
 export default function Homepage() {
-  const [city, setCity] = useState("Detecting...");
+  const [city, setCity] = useState(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -26,24 +28,43 @@ export default function Homepage() {
               data?.address?.village ||
               data?.address?.state ||
               "Your location";
-            console.log("homepage:", cityName);
+
             setCity(cityName);
           } catch (error) {
             console.error("Error fetching location:", error);
+            setCity("Unknown");
+          } finally {
+            setLoading(false);
           }
         },
         (error) => {
           console.error("Geolocation error:", error);
+          setCity("Unknown");
+          setLoading(false);
         }
       );
+    } else {
+      setCity("Unknown");
+      setLoading(false);
     }
   }, []);
   return (
-    <div className="roothome">
-      <div className="home">
-        <HomepageNavBar />
-      </div>
-      {!city.includes("Bhubaneswar") ? <HomepageOfferandDiscount /> : <Homepagedetailsservicable />}
-    </div>
-  );
+  <div className="roothome">
+    {loading ? (
+      <LocationLoader />
+    ) : (
+      <>
+        <div className="home">
+          <HomepageNavBar />
+        </div>
+
+        {!city.includes("Bhubaneswar") ? (
+          <HomepageOfferandDiscount />
+        ) : (
+          <Homepagedetailsservicable />
+        )}
+      </>
+    )}
+  </div>
+);
 }
