@@ -4,7 +4,7 @@ export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
     useEffect(() => {
-        fetch("http://127.0.0.1:8000/api/most-booked")
+        fetch(`${import.meta.env.VITE_API_URL}/most-booked`)
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response:", data);
@@ -15,7 +15,7 @@ export default function Homepagedetailsservicable() {
     }, []);
     
     useEffect(() => {
-        fetch("http://127.0.0.1:8000/api/new-and-noteworthy")
+        fetch(`${import.meta.env.VITE_API_URL}/new-and-noteworthy`)
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response new and noteworthy:", data);
