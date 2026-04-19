@@ -4,7 +4,7 @@ export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
     useEffect(() => {
-        fetch("https://urban-ease-theta.vercel.app/api/new-and-noteworthy")
+        fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response:", data);
