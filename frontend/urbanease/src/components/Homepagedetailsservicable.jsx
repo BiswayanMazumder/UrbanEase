@@ -73,7 +73,14 @@ export default function Homepagedetailsservicable() {
                 <div className="ehsdbsd">
                     <img src="https://www.urbancompany.com/img?quality=90&format=auto/dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1696852847761-574450.jpeg" alt="" width="90%" height="100%" />
                 </div>
-
+            </div>
+            <div className="bvchvcdec">
+                <h2 style={{fontSize:"35px"}}>Offers & discounts</h2>
+                <div className="dhgchgdjshd">
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1711428209166-2d42c0.jpeg" alt="" />
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176718957-192687.jpeg" alt="" />
+                 <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1775813097859-c19871.jpeg" alt="" />
+                </div>
             </div>
         </div>
     );
