@@ -4,7 +4,7 @@ export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL}/most-booked`)
+        fetch("https://urban-ease-theta.vercel.app/api/new-and-noteworthy")
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response:", data);
@@ -15,7 +15,7 @@ export default function Homepagedetailsservicable() {
     }, []);
     
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL}/new-and-noteworthy`)
+        fetch("https://urban-ease-theta.vercel.app/api/new-and-noteworthy")
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response new and noteworthy:", data);
