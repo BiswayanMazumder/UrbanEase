@@ -4,6 +4,7 @@ export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
     const [offers,setOffers]=useState([]);
+    const [salonForWomen, setSalonForWomen] = useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -32,6 +33,17 @@ export default function Homepagedetailsservicable() {
                 setOffers(data.data);
             })
             .catch((err) => console.error(err));
+    }, []);
+
+    useEffect(() => {
+        fetch("https://urban-ease-theta.vercel.app/api/salon-for-women")
+            .then((res) => res.json())
+            .then((data) => {
+                console.log("API response for salon women:", data);
+                setSalonForWomen(data.data);
+            })
+            .catch((err) => console.error(err));
+
     }, []);
     return (
         <div className="servicablehomepage">
@@ -139,6 +151,9 @@ export default function Homepagedetailsservicable() {
                         </div>
                     ))}
                 </div>
+            </div>
+            <div className="edehdhbjedc">
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176709077-e8858a.jpeg" alt="" />
             </div>
         </div>
     );

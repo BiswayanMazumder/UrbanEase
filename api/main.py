@@ -104,6 +104,30 @@ def get_offers_and_discounts():
 
     return {"status": "success", "data": data}
 
+@app.get("/api/salon-for-women")
+def salon_for_women():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, title, price, rating, image FROM "salon for women";
+    """)
+    rows = cur.fetchall()
+    data = [
+        {
+            "id": r[0],
+            "title": r[1],
+            "price": r[2],
+            "rating": r[3],
+            "image": r[4],
+        }
+        for r in rows
+    ]
+    print("data", data)
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "data": data}
 
 # Vercel handler
 handler = Mangum(app)

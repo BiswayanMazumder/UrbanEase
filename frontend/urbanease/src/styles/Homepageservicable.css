@@ -225,7 +225,15 @@
 }
 
 /* optional green tag like screenshot */
-.tag {
-    font-size: 12px;
-    color: green;
+.edehdhbjedc {
+    width: 90%;
+    margin: 50px auto 0;
+    cursor: pointer;
+}
+
+.edehdhbjedc img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 12px; /* optional, matches your cards */
 }
