@@ -141,7 +141,7 @@ def get_new_and_noteworthy():
 
 @app.get("/api/offers-and-discounts")
 def offers_and_discounts():
-    return {"status": "success", "data": offers_and_discounts}
+    return {"status": "success", "data": offersanddiscounts}
 
 # This is what Vercel needs — wraps the ASGI app for serverless
 handler = Mangum(app)
