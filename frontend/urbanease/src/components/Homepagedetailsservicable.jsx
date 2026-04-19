@@ -55,6 +55,18 @@ export default function Homepagedetailsservicable() {
                                     <p className="label">Service Rating*</p>
                                 </div>
                             </div>
+                            <div className="dknkdmvdv">
+                                <img
+                                    src="https://www.urbancompany.com/img?quality=90&format=auto/w_48,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1693491890812-e86755.jpeg"
+                                    alt="star"
+                                    className="star-icon"
+                                />
+
+                                <div className="hbvjdjv" >
+                                    <p className="rating">12M+</p>
+                                    <p className="label">Customers Globally*</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
