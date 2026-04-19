@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 
 app = FastAPI()
 
-# Allow React frontend (Vite runs on 5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -54,6 +54,7 @@ most_booked_services = [
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1770203489779-b131f8.jpeg"
     }
 ]
+
 new_and_noteworthy_services = [
     {
         "id": "svc_201",
@@ -62,10 +63,7 @@ new_and_noteworthy_services = [
         "duration": None,
         "rating": None,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/luminosity/1651040419628-022a2b.jpeg",
-        "tag": {
-            "text": "",
-            "color": ""
-        }
+        "tag": {"text": "", "color": ""}
     },
     {
         "id": "svc_202",
@@ -74,10 +72,7 @@ new_and_noteworthy_services = [
         "duration": None,
         "rating": None,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752476639421-112dfa.jpeg",
-        "tag": {
-            "text": "",
-            "color": ""
-        }
+        "tag": {"text": "", "color": ""}
     },
     {
         "id": "svc_203",
@@ -86,10 +81,7 @@ new_and_noteworthy_services = [
         "duration": None,
         "rating": None,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752218400674-e79bd2.jpeg",
-        "tag": {
-            "text": "",
-            "color": ""
-        }
+        "tag": {"text": "", "color": ""}
     },
     {
         "id": "svc_204",
@@ -98,10 +90,7 @@ new_and_noteworthy_services = [
         "duration": None,
         "rating": None,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/luminosity/1651040420198-fe6d1d.jpeg",
-        "tag": {
-            "text": "",
-            "color": ""
-        }
+        "tag": {"text": "", "color": ""}
     },
     {
         "id": "svc_205",
@@ -110,24 +99,17 @@ new_and_noteworthy_services = [
         "duration": None,
         "rating": None,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752218375028-354111.jpeg",
-        "tag": {
-            "text": "⚡ In 44 mins",
-            "color": "green"
-        }
+        "tag": {"text": "⚡ In 44 mins", "color": "green"}
     }
 ]
 
 @app.get("/api/most-booked")
 def get_most_booked():
-    return {
-        "status": "success",
-        "data": most_booked_services
-    }
+    return {"status": "success", "data": most_booked_services}
+
 @app.get("/api/new-and-noteworthy")
 def get_new_and_noteworthy():
-    return {
-        "status": "success",
-        "data": new_and_noteworthy_services
-    }
-def handler(request, context):
-    return app
+    return {"status": "success", "data": new_and_noteworthy_services}
+
+# This is what Vercel needs — wraps the ASGI app for serverless
+handler = Mangum(app)
