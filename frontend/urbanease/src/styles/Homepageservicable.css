@@ -175,24 +175,26 @@
 
 .dhgchgdjshd {
     display: flex;
-    /* background-color: red; */
     flex-direction: row;
-    justify-content: start;
-    align-items: flex-start;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scroll-behavior: smooth;
     scrollbar-width: none;
-    gap: 30px;
-    margin-top: 20px;
-    overflow: hidden; /* prevents any bleed */
+
+    gap: 20px;              /* 👈 spacing between cards */
+    padding: 0 10px;        /* 👈 side breathing space */
 }
 
 .dhgchgdjshd img {
-    display: block;
     width: 400px;
-    height: auto;        /* ← let height follow the image's natural ratio */
-    object-fit: cover;   /* ← no empty space inside the img box */
-    vertical-align: top;
     flex-shrink: 0;
+    border-radius: 12px;
 }
 .dhgchgdjshd img:hover {
     transform: scale(1.05);
+}
+.dhgchgdjshd::-webkit-scrollbar {
+    display: none; /* Chrome */
 }
