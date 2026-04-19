@@ -103,6 +103,34 @@ new_and_noteworthy_services = [
     }
 ]
 
+offersanddiscounts=[
+    {
+        "id":"off_101",
+        "image":"https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1711428209166-2d42c0.jpeg",
+        "title":"Image 1"
+    },
+    {
+        "id":"off_102",
+        "image":"https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176718957-192687.jpeg",
+        "title":"Image 2"
+    },
+    {
+        "id":"off_103",
+        "image":"https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1775813097859-c19871.jpeg",
+        "title":"Image 3"
+    },
+    {
+        "id":"off_104",
+        "image":"https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1751349785134-9a43cd.jpeg",
+        "title":"Image 4"
+    },
+    {
+        "id":"off_105",
+        "image":"https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1745822547742-760034.jpeg",
+        "title":"Image 5"
+    },
+]
+
 @app.get("/api/most-booked")
 def get_most_booked():
     return {"status": "success", "data": most_booked_services}
@@ -110,6 +138,10 @@ def get_most_booked():
 @app.get("/api/new-and-noteworthy")
 def get_new_and_noteworthy():
     return {"status": "success", "data": new_and_noteworthy_services}
+
+@app.get("/api/offers-and-discounts")
+def offers_and_discounts():
+    return {"status": "success", "data": offers_and_discounts}
 
 # This is what Vercel needs — wraps the ASGI app for serverless
 handler = Mangum(app)
