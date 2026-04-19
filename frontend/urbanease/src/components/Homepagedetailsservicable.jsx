@@ -113,7 +113,7 @@ export default function Homepagedetailsservicable() {
                     <div className="card">
                         <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752218375028-354111.jpeg" alt="" />
                         <p>AC</p>
-                        <span className="tag">⚡ In 44 mins</span>
+                        <span className="tag" style={{color:"green"}}>⚡ In 44 mins</span>
                     </div>
 
                 </div>
