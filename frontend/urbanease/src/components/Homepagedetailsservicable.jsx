@@ -75,14 +75,47 @@ export default function Homepagedetailsservicable() {
                 </div>
             </div>
             <div className="bvchvcdec">
-                <h2 style={{fontSize:"35px"}}>Offers & discounts</h2>
+                <h2 style={{ fontSize: "35px" }}>Offers & discounts</h2>
                 <div className="dhgchgdjshd">
-                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1711428209166-2d42c0.jpeg" alt="" />
-                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176718957-192687.jpeg" alt="" />
-                 <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1775813097859-c19871.jpeg" alt="" />
-                 <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1751349785134-9a43cd.jpeg" alt="" />
-                 <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1745822547742-760034.jpeg" alt="" />
-                 
+                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1711428209166-2d42c0.jpeg" alt="" />
+                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176718957-192687.jpeg" alt="" />
+                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1775813097859-c19871.jpeg" alt="" />
+                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1751349785134-9a43cd.jpeg" alt="" />
+                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1745822547742-760034.jpeg" alt="" />
+
+                </div>
+            </div>
+            <div className="bvchvcdec">
+                <h2 style={{ fontSize: "35px" }}>New and noteworthy</h2>
+
+                <div className="dhgchgdjshd">
+
+                    <div className="card">
+                        <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/luminosity/1651040419628-022a2b.jpeg" alt="" />
+                        <p>Home Painting</p>
+                    </div>
+
+                    <div className="card">
+                        <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752476639421-112dfa.jpeg" alt="" />
+                        <p>Native Water Purifier</p>
+                    </div>
+
+                    <div className="card">
+                        <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752218400674-e79bd2.jpeg" alt="" />
+                        <p>Stove</p>
+                    </div>
+
+                    <div className="card">
+                        <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/luminosity/1651040420198-fe6d1d.jpeg" alt="" />
+                        <p>Hair Studio for Women</p>
+                    </div>
+
+                    <div className="card">
+                        <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1752218375028-354111.jpeg" alt="" />
+                        <p>AC</p>
+                        <span className="tag">⚡ In 44 mins</span>
+                    </div>
+
                 </div>
             </div>
         </div>
