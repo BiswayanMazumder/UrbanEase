@@ -48,7 +48,7 @@ most_booked_services = [
     {
         "id": "svc_105",
         "title": "Roll-on waxing (Full arms, legs & underarms)",
-        "price": 889,
+        "price": 900,
         "duration": 75,
         "rating": 4.6,
         "image": "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_233,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1770203489779-b131f8.jpeg"
