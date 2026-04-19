@@ -1,8 +1,9 @@
 import "../styles/Homepageservicable.css";
-import { useEffect, useState } from "react";
-export default function Homepagedetailsservicable() {
+import { use, useEffect, useState } from "react";
+export default function Homepagedetailsservicable() { 
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
+    const [offers,setOffers]=useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -13,13 +14,22 @@ export default function Homepagedetailsservicable() {
             .catch((err) => console.error(err));
 
     }, []);
-    
+
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/new-and-noteworthy")
             .then((res) => res.json())
             .then((data) => {
                 console.log("API response new and noteworthy:", data);
                 setNewAndNoteworthy(data.data);
+            })
+            .catch((err) => console.error(err));
+    }, []);
+       useEffect(() => {
+        fetch("https://urban-ease-theta.vercel.app/api/offers-and-discounts")
+            .then((res) => res.json())
+            .then((data) => {
+                console.log("API response offers:", data);
+                setOffers(data.data);
             })
             .catch((err) => console.error(err));
     }, []);
@@ -100,12 +110,9 @@ export default function Homepagedetailsservicable() {
             <div className="bvchvcdec">
                 <h2 style={{ fontSize: "35px" }}>Offers & discounts</h2>
                 <div className="dhgchgdjshd">
-                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1711428209166-2d42c0.jpeg" alt="" />
-                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176718957-192687.jpeg" alt="" />
-                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1775813097859-c19871.jpeg" alt="" />
-                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1751349785134-9a43cd.jpeg" alt="" />
-                    <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_394,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1745822547742-760034.jpeg" alt="" />
-
+                    {offers.map((item) => (
+                        <img src={item.image} alt={item.title}></img>
+                    ))}
                 </div>
             </div>
             <div className="bvchvcdec">
@@ -115,7 +122,7 @@ export default function Homepagedetailsservicable() {
                         <div className="card" key={item.id}>
                             <img src={item.image} alt={item.title} />
                             <p>{item.title}</p>
-                            <p style={{ fontWeight: "300",color:item.tag.color==""?"black":item.tag.color }}>{item.tag.text===null?"":item.tag.text}</p>
+                            <p style={{ fontWeight: "300", color: item.tag.color == "" ? "black" : item.tag.color }}>{item.tag.text === null ? "" : item.tag.text}</p>
                         </div>
                     ))}
                 </div>
