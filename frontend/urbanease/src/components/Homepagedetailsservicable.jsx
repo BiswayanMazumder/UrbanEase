@@ -1,9 +1,9 @@
 import "../styles/Homepageservicable.css";
 import { use, useEffect, useState } from "react";
-export default function Homepagedetailsservicable() { 
+export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
-    const [offers,setOffers]=useState([]);
+    const [offers, setOffers] = useState([]);
     const [salonForWomen, setSalonForWomen] = useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
@@ -25,7 +25,7 @@ export default function Homepagedetailsservicable() {
             })
             .catch((err) => console.error(err));
     }, []);
-       useEffect(() => {
+    useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/offers-and-discounts")
             .then((res) => res.json())
             .then((data) => {
@@ -152,8 +152,23 @@ export default function Homepagedetailsservicable() {
                     ))}
                 </div>
             </div>
+
             <div className="edehdhbjedc">
                 <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776176709077-e8858a.jpeg" alt="" />
+            </div>
+            <div className="bvchvcdec">
+                <h2 style={{ fontSize: "35px" }}>Salon for Women</h2>
+                <h2 style={{fontWeight:"400",color:"Grey", fontSize:"20px", marginTop:"-10px"}}>Pamper yourself at home</h2>
+                <div className="dhgchgdjshd">
+                    {salonForWomen.map((item) => (
+                        <div className="card" key={item.id}>
+                            <img src={item.image} alt={item.title} />
+                            <p>{item.title}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>⭐ {item.rating}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>₹{item.price}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
