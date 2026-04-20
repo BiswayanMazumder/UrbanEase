@@ -153,7 +153,7 @@ def salon_for_women():
     conn.close()
 
     return {"status": "success", "data": data}
-@app.get("/api/spa-for-women")
+@app.get("/api/cleaning-services")
 def salon_for_women():
     conn = get_conn()
     cur = conn.cursor()
