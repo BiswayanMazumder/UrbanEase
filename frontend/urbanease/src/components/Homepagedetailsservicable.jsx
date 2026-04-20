@@ -5,6 +5,7 @@ export default function Homepagedetailsservicable() {
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
     const [offers, setOffers] = useState([]);
     const [salonForWomen, setSalonForWomen] = useState([]);
+    const [spaforwomen,setSpaforWomen]=useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -41,6 +42,17 @@ export default function Homepagedetailsservicable() {
             .then((data) => {
                 console.log("API response for salon women:", data);
                 setSalonForWomen(data.data);
+            })
+            .catch((err) => console.error(err));
+
+    }, []);
+
+        useEffect(() => {
+        fetch("https://urban-ease-theta.vercel.app/api/spa-for-women")
+            .then((res) => res.json())
+            .then((data) => {
+                console.log("API response for spa women:", data);
+                setSpaforWomen(data.data);
             })
             .catch((err) => console.error(err));
 
@@ -161,6 +173,20 @@ export default function Homepagedetailsservicable() {
                 <h2 style={{fontWeight:"400",color:"Grey", fontSize:"20px", marginTop:"-10px"}}>Pamper yourself at home</h2>
                 <div className="dhgchgdjshd">
                     {salonForWomen.map((item) => (
+                        <div className="card" key={item.id}>
+                            <img src={item.image} alt={item.title} />
+                            <p>{item.title}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>⭐ {item.rating}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>₹{item.price}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+             <div className="bvchvcdec">
+                <h2 style={{ fontSize: "35px" }}>Spa for Women</h2>
+                {/* <h2 style={{fontWeight:"400",color:"Grey", fontSize:"20px", marginTop:"-10px"}}>Pamper yourself at home</h2> */}
+                <div className="dhgchgdjshd">
+                    {spaforwomen.map((item) => (
                         <div className="card" key={item.id}>
                             <img src={item.image} alt={item.title} />
                             <p>{item.title}</p>
