@@ -6,6 +6,7 @@ export default function Homepagedetailsservicable() {
     const [offers, setOffers] = useState([]);
     const [salonForWomen, setSalonForWomen] = useState([]);
     const [spaforwomen,setSpaforWomen]=useState([]);
+    const [cleaningservices,setCleaningServices ]= useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -46,17 +47,26 @@ export default function Homepagedetailsservicable() {
             .catch((err) => console.error(err));
 
     }, []);
+    useEffect(() => {
+            fetch("https://urban-ease-theta.vercel.app/api/spa-for-women")
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("API response for spa women:", data);
+                    setSpaforWomen(data.data);
+                })
+                .catch((err) => console.error(err));
 
+        }, []);
         useEffect(() => {
-        fetch("https://urban-ease-theta.vercel.app/api/spa-for-women")
-            .then((res) => res.json())
-            .then((data) => {
-                console.log("API response for spa women:", data);
-                setSpaforWomen(data.data);
-            })
-            .catch((err) => console.error(err));
+            fetch("https://urban-ease-theta.vercel.app/api/cleaning-services")
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("API response for cleaning services:", data);
+                    setCleaningServices(data.data);
+                })
+                .catch((err) => console.error(err));
 
-    }, []);
+        }, []);
     return (
         <div className="servicablehomepage">
             <div className="werfgfdfdsckfj">
@@ -170,7 +180,7 @@ export default function Homepagedetailsservicable() {
             </div>
             <div className="bvchvcdec">
                 <h2 style={{ fontSize: "35px" }}>Salon for Women</h2>
-                <h2 style={{fontWeight:"400",color:"Grey", fontSize:"20px", marginTop:"-10px"}}>Pamper yourself at home</h2>
+                <h2 style={{fontWeight:"350",color:"Grey", fontSize:"15px", marginTop:"-10px"}}>Pamper yourself at home</h2>
                 <div className="dhgchgdjshd">
                     {salonForWomen.map((item) => (
                         <div className="card" key={item.id}>
@@ -195,6 +205,39 @@ export default function Homepagedetailsservicable() {
                         </div>
                     ))}
                 </div>
+            </div>
+            <div className="bvchvcdec">
+                <h2 style={{ fontSize: "35px" }}>Cleaning Essentials</h2>
+                <h2 style={{fontWeight:"350",color:"Grey", fontSize:"15px", marginTop:"-10px"}}>Monthly cleaning essential services</h2>
+                <div className="dhgchgdjshd">
+                    {cleaningservices.map((item) => (
+                        <div className="card" key={item.id}>
+                            <img src={item.image} alt={item.title} />
+                            <p>{item.title}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>⭐ {item.rating}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>₹{item.price}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="edehdhbjedc">
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1750420814338-49f225.jpeg" alt="" />
+            </div>
+            <div className="bvchvcdec">
+                <h2 style={{ fontSize: "35px" }}>Large Appliances</h2>
+                <div className="dhgchgdjshd">
+                    {cleaningservices.map((item) => (
+                        <div className="card" key={item.id}>
+                            <img src={item.image} alt={item.title} />
+                            <p>{item.title}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>⭐ {item.rating}</p>
+                            <p style={{fontWeight:"400",color:"Grey"}}>₹{item.price}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="edehdhbjedc">
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1776496725499-cdc489.jpeg" alt="" />
             </div>
         </div>
     );
