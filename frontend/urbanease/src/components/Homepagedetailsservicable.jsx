@@ -7,6 +7,7 @@ export default function Homepagedetailsservicable() {
     const [salonForWomen, setSalonForWomen] = useState([]);
     const [spaforwomen,setSpaforWomen]=useState([]);
     const [cleaningservices,setCleaningServices ]= useState([]);
+    const [largecleaningservices,setLargeCleaningServices ]= useState([]);
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -63,6 +64,16 @@ export default function Homepagedetailsservicable() {
                 .then((data) => {
                     console.log("API response for cleaning services:", data);
                     setCleaningServices(data.data);
+                })
+                .catch((err) => console.error(err));
+
+        }, []);
+                useEffect(() => {
+            fetch("https://urban-ease-theta.vercel.app/api/large-appliances-cleaning-services")
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("API response for large cleaning services:", data);
+                    setLargeCleaningServices(data.data);
                 })
                 .catch((err) => console.error(err));
 
@@ -226,7 +237,7 @@ export default function Homepagedetailsservicable() {
             <div className="bvchvcdec">
                 <h2 style={{ fontSize: "35px" }}>Large Appliances</h2>
                 <div className="dhgchgdjshd">
-                    {cleaningservices.map((item) => (
+                    {largecleaningservices.map((item) => (
                         <div className="card" key={item.id}>
                             <img src={item.image} alt={item.title} />
                             <p>{item.title}</p>
