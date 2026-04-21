@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 import psycopg2
 import os
+from jose import jwt, JWTError
+from datetime import datetime, timedelta
 
+SECRET_KEY = "a8f7sd9f87sdf98s7df98s7df98sdf7"
+ALGORITHM = "HS256"
+TOKEN_EXPIRE_MINUTES = 60
 app = FastAPI()
 
 app.add_middleware(
@@ -19,7 +24,23 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
+def create_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+def verify_token(request):
+    auth_header = request.headers.get("Authorization")
 
+    if not auth_header:
+        return None
+
+    try:
+        token = auth_header.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        return None
 # 🔹 MOST BOOKED
 @app.get("/api/most-booked")
 def get_most_booked():
@@ -201,5 +222,53 @@ def salon_for_women():
     conn.close()
 
     return {"status": "success", "data": data}
+@app.get("/api/users")
+def get_users(request: Request):
+    user = verify_token(request)
+
+    if not user:
+        return {"status": "error", "message": "Unauthorized"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, firebase_uid, name, email FROM users;
+    """)
+
+    rows = cur.fetchall()
+
+    data = [
+        {
+            "id": r[0],
+            "firebase_uid": r[1],
+            "name": r[2],
+            "email": r[3],
+        }
+        for r in rows
+    ]
+
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "data": data}
+@app.post("/api/login")
+def login(user: dict):
+    email = user.get("email")
+    name = user.get("name", "")
+
+    if not email:
+        return {"status": "error", "message": "Email required"}
+
+    token = create_token({
+        "email": email,
+        "name": name
+    })
+
+    return {
+        "status": "success",
+        "token": token
+    }
+    
 # Vercel handler
 handler = Mangum(app)
