@@ -112,3 +112,176 @@
   font-size: 15px;
   margin-left: 10px;
 }
+/* ===== OVERLAY ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+
+  animation: fadeIn 0.3s ease;
+}
+
+/* ===== MODAL BOX ===== */
+.modal-box {
+  width: 360px;
+  padding: 30px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+
+  animation: scaleUp 0.3s ease;
+}
+
+/* ===== TITLE ===== */
+.modal-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* ===== CLOSE ICON ===== */
+.close-icon {
+  position: absolute;
+  right: 15px;
+  top: 10px;
+  font-size: 22px;
+  cursor: pointer;
+  color: gray;
+  transition: 0.2s;
+}
+
+.close-icon:hover {
+  color: black;
+  transform: rotate(90deg);
+}
+
+/* ===== INPUT GROUP ===== */
+.input-group {
+  position: relative;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+}
+
+.input-group label {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: gray;
+  font-size: 13px;
+  pointer-events: none;
+  transition: 0.3s;
+  background: transparent;
+}
+
+/* FLOAT EFFECT */
+.input-group input:focus + label,
+.input-group input:valid + label {
+  top: -8px;
+  left: 8px;
+  font-size: 11px;
+  background: white;
+  padding: 0 4px;
+}
+
+/* ===== BUTTON ===== */
+.login-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: black;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.login-btn:hover {
+  background: #333;
+  transform: translateY(-2px);
+}
+
+/* ===== TEXT ===== */
+.switch-text {
+  font-size: 13px;
+  text-align: center;
+  color: gray;
+}
+
+.switch-text span {
+  color: black;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.password-rules {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.password-rules p {
+  color: #aaa;
+}
+
+.password-rules p.valid {
+  color: green;
+  font-weight: 500;
+}
+.error-text {
+  color: #ff4d4f;
+  font-size: 12px;
+  margin-top: -6px;
+  margin-bottom: 6px;
+}
+
+.password-rules {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.password-rules p {
+  color: #aaa;
+}
+
+.password-rules p.valid {
+  color: green;
+  font-weight: 500;
+}

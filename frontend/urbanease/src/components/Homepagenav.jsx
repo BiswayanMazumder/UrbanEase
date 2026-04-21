@@ -1,6 +1,6 @@
 import "../styles/Homepage.css";
 import { useEffect, useState } from "react";
-export default function HomepageNavBar() {
+export default function HomepageNavBar({ onProfileClick }) {
     const words = ["Facial", "Plumber", "Electrician", "AC repair"];
     const [text, setText] = useState("");
     const [wordIndex, setWordIndex] = useState(0);
@@ -144,7 +144,7 @@ export default function HomepageNavBar() {
                         <path d="M8.5 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM18.25 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                     </svg>
                 </div>
-                <div className="profilesvg">
+                <div className="profilesvg" onClick={onProfileClick}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="#0F0F0F" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M18.702 19.422A9.974 9.974 0 0022 12c0-5.523-4.477-10-10-10S2 6.477 2 12a9.975 9.975 0 003.326 7.447A9.963 9.963 0 0012 22a9.963 9.963 0 006.702-2.578zM12 4a8 8 0 00-6.183 13.076 7.752 7.752 0 012.933-2.362 4.75 4.75 0 116.5 0 7.755 7.755 0 012.933 2.362A8 8 0 0012 4zm4.718 14.461a5.753 5.753 0 00-9.436 0A7.964 7.964 0 0012 20a7.964 7.964 0 004.718-1.539zM12 14a2.75 2.75 0 100-5.5 2.75 2.75 0 000 5.5z" fill="#0F0F0F"></path></svg>
                 </div>
             </div>
