@@ -222,36 +222,29 @@ def salon_for_women():
     conn.close()
 
     return {"status": "success", "data": data}
-@app.get("/api/users")
-def get_users(request: Request):
-    user = verify_token(request)
+@app.post("/api/users")
+async def create_user(request: Request):
+    body = await request.json()
 
-    if not user:
-        return {"status": "error", "message": "Unauthorized"}
+    firebase_uid = body.get("firebase_uid")
+    name = body.get("name")
+    email = body.get("email")
 
     conn = get_conn()
     cur = conn.cursor()
 
+    # ✅ avoid duplicates
     cur.execute("""
-        SELECT id, firebase_uid, name, email FROM users;
-    """)
+        INSERT INTO users (firebase_uid, name, email)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (firebase_uid) DO NOTHING;
+    """, (firebase_uid, name, email))
 
-    rows = cur.fetchall()
-
-    data = [
-        {
-            "id": r[0],
-            "firebase_uid": r[1],
-            "name": r[2],
-            "email": r[3],
-        }
-        for r in rows
-    ]
-
+    conn.commit()
     cur.close()
     conn.close()
 
-    return {"status": "success", "data": data}
+    return {"status": "user saved"}
 @app.post("/api/login")
 def login(user: dict):
     email = user.get("email")
