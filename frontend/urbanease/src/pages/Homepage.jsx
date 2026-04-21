@@ -7,6 +7,13 @@ import { useEffect, useState } from "react";
 import Homepagedetailsservicable from "../components/Homepagedetailsservicable.jsx";
 import LocationLoader from "../components/LocationLoader.jsx";
 
+// 🔥 FIREBASE
+import { auth } from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+
 export default function Homepage() {
   const [city, setCity] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,42 +30,43 @@ export default function Homepage() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  // 📍 LOCATION
+  // 📍 LOCATION (with fallback + no crash)
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
+    const savedCity = localStorage.getItem("city");
 
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-            );
-            const data = await res.json();
+    if (savedCity) {
+      setCity(savedCity);
+      setLoading(false);
+      return;
+    }
 
-            const cityName =
-              data?.address?.city ||
-              data?.address?.town ||
-              data?.address?.village ||
-              data?.address?.state ||
-              "Your location";
+    navigator.geolocation?.getCurrentPosition(
+      async (position) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
+          );
 
-            setCity(cityName);
-          } catch {
-            setCity("Unknown");
-          } finally {
-            setLoading(false);
-          }
-        },
-        () => {
-          setCity("Unknown");
+          const data = await res.json();
+
+          const cityName =
+            data?.address?.city ||
+            data?.address?.state ||
+            "Bhubaneswar";
+
+          setCity(cityName);
+          localStorage.setItem("city", cityName);
+        } catch {
+          setCity("Bhubaneswar");
+        } finally {
           setLoading(false);
         }
-      );
-    } else {
-      setCity("Unknown");
-      setLoading(false);
-    }
+      },
+      () => {
+        setCity("Bhubaneswar");
+        setLoading(false);
+      }
+    );
   }, []);
 
   // 🔑 PASSWORD RULES
@@ -93,13 +101,39 @@ export default function Homepage() {
     return newErrors;
   };
 
-  // 🚀 SUBMIT
-  const handleSubmit = () => {
+  // 🚀 FIREBASE AUTH (ONLY LOGIC ADDED)
+  const handleSubmit = async () => {
     const validationErrors = validate();
     setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length === 0) {
-      console.log("Form Submitted ✅", { name, email, password });
+    if (Object.keys(validationErrors).length > 0) return;
+
+    try {
+      let userCred;
+
+      if (isSignup) {
+        userCred = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      } else {
+        userCred = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+      }
+
+      // ✅ store token
+      const token = await userCred.user.getIdToken();
+      localStorage.setItem("token", token);
+
+      console.log("User:", userCred.user);
+
+      setShowLogin(false);
+    } catch (error) {
+      setErrors({ firebase: error.message });
     }
   };
 
@@ -110,10 +144,13 @@ export default function Homepage() {
       ) : (
         <>
           <div className="home">
-            <HomepageNavBar onProfileClick={() => setShowLogin(true)} />
+            <HomepageNavBar
+              city={city}
+              onProfileClick={() => setShowLogin(true)}
+            />
           </div>
 
-          {!city.includes("Bhubaneswar") ? (
+          {!city?.includes("Bhubaneswar") ? (
             <HomepageOfferandDiscount />
           ) : (
             <Homepagedetailsservicable />
@@ -193,21 +230,11 @@ export default function Homepage() {
                 {/* RULES */}
                 {isSignup && (
                   <div className="password-rules">
-                    <p className={rules.length ? "valid" : ""}>
-                      ✔ 7+ characters
-                    </p>
-                    <p className={rules.uppercase ? "valid" : ""}>
-                      ✔ Uppercase letter
-                    </p>
-                    <p className={rules.lowercase ? "valid" : ""}>
-                      ✔ Lowercase letter
-                    </p>
-                    <p className={rules.number ? "valid" : ""}>
-                      ✔ Number
-                    </p>
-                    <p className={rules.special ? "valid" : ""}>
-                      ✔ Special character
-                    </p>
+                    <p className={rules.length ? "valid" : ""}>✔ 7+ characters</p>
+                    <p className={rules.uppercase ? "valid" : ""}>✔ Uppercase</p>
+                    <p className={rules.lowercase ? "valid" : ""}>✔ Lowercase</p>
+                    <p className={rules.number ? "valid" : ""}>✔ Number</p>
+                    <p className={rules.special ? "valid" : ""}>✔ Special</p>
                   </div>
                 )}
 
@@ -219,6 +246,11 @@ export default function Homepage() {
                 >
                   {isSignup ? "Sign Up" : "Login"}
                 </button>
+
+                {/* 🔥 FIREBASE ERROR */}
+                {errors.firebase && (
+                  <span className="error-text">{errors.firebase}</span>
+                )}
 
                 {/* SWITCH */}
                 <p className="switch-text">

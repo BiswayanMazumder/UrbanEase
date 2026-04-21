@@ -28,6 +28,7 @@ export default function HomepageNavBar({ onProfileClick }) {
                         setCity(cityName);
                     } catch (error) {
                         console.error("Error fetching location:", error);
+                        setCity("Bhubaneswar"); 
                     }
                 },
                 (error) => {
