@@ -12,6 +12,7 @@ import { auth } from "../firebase";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  onAuthStateChanged, // 🔥 ADD THIS
 } from "firebase/auth";
 
 export default function Homepage() {
@@ -29,6 +30,7 @@ export default function Homepage() {
   // ❗ VALIDATION STATE
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [user, setUser] = useState(null);
 
   // 📍 LOCATION (with fallback + no crash)
   useEffect(() => {
@@ -125,18 +127,41 @@ export default function Homepage() {
         );
       }
 
-      // ✅ store token
-      const token = await userCred.user.getIdToken();
+      const user = userCred.user;
+
+      // 🔥 GET FIREBASE TOKEN
+      const token = await user.getIdToken();
       localStorage.setItem("token", token);
 
-      console.log("User:", userCred.user);
+      // 🔥 SEND USER TO BACKEND (NEON DB)
+      await fetch("https://urban-ease-theta.vercel.app/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firebase_uid: user.uid,
+          name: name || "",
+          email: user.email,
+        }),
+      });
+
+      console.log("User saved to backend");
 
       setShowLogin(false);
+
     } catch (error) {
       setErrors({ firebase: error.message });
     }
   };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
 
+    return () => unsubscribe();
+  }, []);
   return (
     <div className="roothome">
       {loading ? (
@@ -146,18 +171,25 @@ export default function Homepage() {
           <div className="home">
             <HomepageNavBar
               city={city}
-              onProfileClick={() => setShowLogin(true)}
+              onProfileClick={() => {
+                if (user) {
+                  console.log("Already logged in:", user.email);
+                  // 👉 later you can open profile dropdown here
+                } else {
+                  setShowLogin(true);
+                }
+              }}
             />
           </div>
 
           {!city?.includes("Bhubaneswar") ? (
-            <HomepageOfferandDiscount />
+            <Homepagedetailsservicable />
           ) : (
             <Homepagedetailsservicable />
           )}
 
           {/* 🔥 MODAL */}
-          {showLogin && (
+          {showLogin && !user && (
             <div
               className="modal-overlay"
               onClick={() => setShowLogin(false)}
