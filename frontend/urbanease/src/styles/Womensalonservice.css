@@ -11,13 +11,12 @@
   overflow: hidden;
 }
 
-/* LEFT FIXED */
+/* LEFT */
 .wss-left {
   width: 35%;
   height: calc(100vh - 70px);
   position: sticky;
   top: 70px;
-
   padding: 28px;
 }
 
@@ -59,7 +58,7 @@
   cursor: pointer;
 }
 
-/* IMAGE BOX */
+/* IMAGE */
 .wss-tab-thumb {
   width: 72px;
   height: 72px;
@@ -79,7 +78,7 @@
   transform: scale(1.05);
 }
 
-/* LABEL + UNDERLINE */
+/* LABEL */
 .wss-tab-label {
   font-size: 12px;
   position: relative;
@@ -101,12 +100,17 @@
   width: 100%;
 }
 
-/* RIGHT SCROLL */
+/* RIGHT */
 .wss-right {
   width: 65%;
   height: calc(100vh - 70px);
   overflow-y: auto;
   padding: 32px;
+  scrollbar-width: none;
+}
+
+.wss-right::-webkit-scrollbar {
+  display: none;
 }
 
 .wss-content {
@@ -116,6 +120,7 @@
 
 /* VIDEO */
 .wss-video-wrapper {
+  position: relative;
   width: 100%;
   aspect-ratio: 16/9;
   border-radius: 16px;
@@ -128,11 +133,8 @@
   height: 100%;
   object-fit: cover;
 }
-.wss-right{
-  scrollbar-width: none;
-}
 
-/* PROGRESS BAR */
+/* PROGRESS */
 .wss-progress-bar {
   position: absolute;
   bottom: 10px;
@@ -147,7 +149,98 @@
   width: 0%;
 }
 
-/* dummy */
+/* DUMMY */
 .wss-dummy {
   margin-top: 30px;
+}
+
+/* ========================= */
+/* TABLET */
+/* ========================= */
+@media (max-width: 1024px) {
+  .wss-left {
+    width: 40%;
+    padding: 20px;
+  }
+
+  .wss-right {
+    width: 60%;
+    padding: 20px;
+  }
+
+  .wss-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ========================= */
+/* MOBILE */
+/* ========================= */
+@media (max-width: 768px) {
+  .wss-body {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .wss-left {
+    width: 100%;
+    position: relative;
+    height: auto;
+    top: 0;
+    padding: 16px;
+  }
+
+  .wss-right {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    padding: 16px;
+  }
+
+  .wss-title {
+    font-size: 22px;
+  }
+
+  /* horizontal scroll like real apps */
+  .wss-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding-bottom: 10px;
+  }
+
+  .wss-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wss-tab {
+    min-width: 80px;
+  }
+
+  .wss-tab-thumb {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* ========================= */
+/* SMALL MOBILE */
+/* ========================= */
+@media (max-width: 480px) {
+  .wss-title {
+    font-size: 20px;
+  }
+
+  .wss-rating {
+    font-size: 12px;
+  }
+
+  .wss-tab-label {
+    font-size: 11px;
+  }
+
+  .wss-tab-thumb {
+    width: 54px;
+    height: 54px;
+  }
 }

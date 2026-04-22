@@ -47,7 +47,7 @@ export default function WomenSalonandSpa() {
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/salon-prime")
             .then((res) => res.json())
-            .then((data) => SetWomenService(data.data))
+            .then((data) => SetWomenService(data.data || []))
             .catch((err) => console.error(err));
     }, []);
 
@@ -94,9 +94,7 @@ export default function WomenSalonandSpa() {
                             </div>
                         </div>
 
-                        {/* Dummy content for scroll */}
                         <div className="wss-dummy">
-                            
                             <div style={{ height: "800px" }} />
                         </div>
                     </div>
