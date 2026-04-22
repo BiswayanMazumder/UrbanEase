@@ -1,5 +1,6 @@
 import "../styles/Homepageservicable.css";
 import { use, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 export default function Homepagedetailsservicable() {
     const [services, setServices] = useState([]);
     const [newAndNoteworthy, setNewAndNoteworthy] = useState([]);
@@ -8,6 +9,7 @@ export default function Homepagedetailsservicable() {
     const [spaforwomen,setSpaforWomen]=useState([]);
     const [cleaningservices,setCleaningServices ]= useState([]);
     const [largecleaningservices,setLargeCleaningServices ]= useState([]);
+    const navigate = useNavigate();
     useEffect(() => {
         fetch("https://urban-ease-theta.vercel.app/api/most-booked")
             .then((res) => res.json())
@@ -88,7 +90,7 @@ export default function Homepagedetailsservicable() {
                             <div className="ehevfhgfjf">
                                 <p>What are you looking for?</p>
                                 <div className="hegbehdbesf">
-                                    <div className="dhjdbjdnj">
+                                    <div className="dhjdbjdnj" onClick={()=>navigate("/women-salon")}>
                                         <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_56,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1774526047861-554660.jpeg" alt="" />
                                         <p>Women's Salon & Spa</p>
                                     </div>

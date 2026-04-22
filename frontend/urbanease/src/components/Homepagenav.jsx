@@ -1,6 +1,8 @@
 import "../styles/Homepage.css";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 export default function HomepageNavBar({ onProfileClick }) {
+    const navigate = useNavigate();
     const words = ["Facial", "Plumber", "Electrician", "AC repair"];
     const [text, setText] = useState("");
     const [wordIndex, setWordIndex] = useState(0);
@@ -59,7 +61,7 @@ export default function HomepageNavBar({ onProfileClick }) {
 
         <div className="homenavbar">
             <div className="logoplaceholder">
-                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_144,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/partner-training/1628575858610-5b0ae4.png" alt="UrbanEase Logo" width="144px" height="40px" />
+                <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_144,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/partner-training/1628575858610-5b0ae4.png" alt="UrbanEase Logo" width="144px" height="40px" onClick={()=>navigate("/")} style={{cursor:"pointer"}}/>
             </div>
             <div className="locationdropdown">
                 <span className="locationsvg">

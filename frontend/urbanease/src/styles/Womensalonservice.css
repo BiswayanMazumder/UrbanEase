@@ -1,0 +1,5 @@
+.gvmdbv {
+  width: 100%;
+  height: 100dvh;  /* dvh = dynamic viewport height, accounts for browser UI */
+  background-color: white;
+}

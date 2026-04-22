@@ -9,7 +9,7 @@ from datetime import datetime
 # ─────────────────────────────────────────────
 #  Firebase public-key endpoint (no Admin SDK)
 # ─────────────────────────────────────────────
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")   # e.g. "my-app-12345"
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")   
 FIREBASE_VERIFY_URL = (
     "https://identitytoolkit.googleapis.com/v1/accounts:lookup"
     "?key={api_key}"
