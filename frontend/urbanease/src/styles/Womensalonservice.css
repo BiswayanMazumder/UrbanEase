@@ -1,5 +1,153 @@
-.gvmdbv {
+.wss-root {
   width: 100%;
-  height: 100dvh;  /* dvh = dynamic viewport height, accounts for browser UI */
-  background-color: white;
+  min-height: 100vh;
+  background: #fff;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.wss-body {
+  display: flex;
+  height: calc(100vh - 70px);
+  overflow: hidden;
+}
+
+/* LEFT FIXED */
+.wss-left {
+  width: 35%;
+  height: calc(100vh - 70px);
+  position: sticky;
+  top: 70px;
+
+  padding: 28px;
+}
+
+.wss-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.wss-rating {
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.wss-tabs-box {
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.wss-select-label {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+/* GRID */
+.wss-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+}
+
+/* TAB */
+.wss-tab {
+  text-align: center;
+  cursor: pointer;
+}
+
+/* IMAGE BOX */
+.wss-tab-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: auto;
+  transition: transform 0.2s;
+}
+
+.wss-tab-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wss-tab:hover .wss-tab-thumb {
+  transform: scale(1.05);
+}
+
+/* LABEL + UNDERLINE */
+.wss-tab-label {
+  font-size: 12px;
+  position: relative;
+  display: inline-block;
+}
+
+.wss-tab-label::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0%;
+  height: 2px;
+  background: black;
+  transition: width 0.3s;
+}
+
+.wss-tab:hover .wss-tab-label::after {
+  width: 100%;
+}
+
+/* RIGHT SCROLL */
+.wss-right {
+  width: 65%;
+  height: calc(100vh - 70px);
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.wss-content {
+  max-width: 720px;
+  margin: auto;
+}
+
+/* VIDEO */
+.wss-video-wrapper {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+}
+
+.wss-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wss-right{
+  scrollbar-width: none;
+}
+
+/* PROGRESS BAR */
+.wss-progress-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+}
+
+.wss-progress-fill {
+  height: 100%;
+  background: white;
+  width: 0%;
+}
+
+/* dummy */
+.wss-dummy {
+  margin-top: 30px;
 }
