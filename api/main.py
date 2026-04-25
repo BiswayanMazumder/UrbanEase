@@ -394,7 +394,57 @@ def get_packages():
     ]
     cur.close(); conn.close()
     return {"status": "success", "data": data}
+@app.post("/api/cart")
+async def save_cart(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
 
+    body = await request.json()
+    items = body.get("items", [])
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # Clear old cart
+    cur.execute("DELETE FROM cart_items WHERE firebase_uid = %s", (firebase_uid,))
+
+    # Insert new cart
+    for item in items:
+        cur.execute("""
+            INSERT INTO cart_items (firebase_uid, product_id, quantity, price)
+            VALUES (%s, %s, %s, %s)
+        """, (firebase_uid, item["id"], item["qty"], item["price"]))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"status": "cart saved"}
+@app.get("/api/cart")
+async def get_cart(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT product_id, quantity, price
+        FROM cart_items
+        WHERE firebase_uid = %s
+    """, (firebase_uid,))
+
+    rows = cur.fetchall()
+
+    cart = {
+        r[0]: {"qty": r[1], "price": float(r[2])}
+        for r in rows
+    }
+
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "cart": cart}
 
 @app.get("/api/services/{category}")
 def get_services_by_category(category: str):
