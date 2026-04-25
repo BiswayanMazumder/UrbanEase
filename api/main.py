@@ -369,7 +369,64 @@ async def logout(request: Request):
     payload = await verify_firebase_token(request)
     delete_sessions(payload["uid"])
     return {"status": "logged out"}
+@app.get("/api/packages")
+def get_packages():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, title, reviews, price, old_price, duration, discount, badge_class, includes
+        FROM packages
+    """)
+    rows = cur.fetchall()
+    data = [
+        {
+            "id":         r[0],
+            "title":      r[1],
+            "reviews":    r[2],
+            "price":      r[3],
+            "oldPrice":   r[4],
+            "duration":   r[5],
+            "discount":   r[6],
+            "badgeClass": r[7],
+            "includes":   r[8],   # already a list — psycopg2 parses JSONB
+        }
+        for r in rows
+    ]
+    cur.close(); conn.close()
+    return {"status": "success", "data": data}
 
+
+@app.get("/api/services/{category}")
+def get_services_by_category(category: str):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, category, title, price, old_price, rating, reviews,
+               options, badge, banner_img, banner_heading, banner_sub, bullets
+        FROM services
+        WHERE category = %s
+    """, (category,))
+    rows = cur.fetchall()
+    data = [
+        {
+            "id":            r[0],
+            "category":      r[1],
+            "title":         r[2],
+            "price":         r[3],
+            "oldPrice":      r[4],
+            "rating":        r[5],
+            "reviews":       r[6],
+            "options":       r[7],
+            "badge":         r[8],
+            "bannerImg":     r[9],
+            "bannerHeading": r[10],
+            "bannerSub":     r[11],
+            "bullets":       r[12],  # JSONB → list
+        }
+        for r in rows
+    ]
+    cur.close(); conn.close()
+    return {"status": "success", "data": data}
 
 # ─────────────────────────────────────────────
 #  LEGACY /api/login removed —
