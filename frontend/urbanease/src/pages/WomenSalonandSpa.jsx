@@ -2,7 +2,7 @@ import "../styles/Womensalonservice.css";
 import { useEffect, useRef, useState } from "react";
 import HomepageNavBar from "../components/Homepagenav.jsx";
 import Hls from "hls.js";
-
+import { getAuth } from "firebase/auth";
 // ── helpers ──────────────────────────────────────────────────────────────────
 const CART_KEY = "urbanease_cart";
 
@@ -14,9 +14,41 @@ function loadCart() {
     return {};
   }
 }
-
+function getUser() {
+  return getAuth().currentUser;
+}
 function saveCart(cart) {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+async function handleCartUpdate(cart) {
+  const user = getUser();
+
+  // ❌ NOT LOGGED IN → localStorage only
+  if (!user) {
+    localStorage.setItem("urbanease_cart", JSON.stringify(cart));
+    return;
+  }
+
+  // ✅ LOGGED IN → send to backend
+  const token = await user.getIdToken();
+
+  await fetch(`${BASE}/api/cart`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      items: Object.entries(cart).map(([id, v]) => ({
+        id,
+        qty: v.qty,
+        price: v.price,
+      })),
+    }),
+  });
+
+  // optional: also keep local copy
+  localStorage.setItem("urbanease_cart", JSON.stringify(cart));
 }
 
 // ── Skeleton primitives ───────────────────────────────────────────────────────
@@ -105,7 +137,7 @@ function QuantityBtn({ id, price, cart, setCart }) {
       const newQty = (next[id]?.qty ?? 0) + delta;
       if (newQty <= 0) delete next[id];
       else next[id] = { qty: newQty, price };
-      saveCart(next);
+      handleCartUpdate(next);
       return next;
     });
   }
@@ -198,6 +230,34 @@ export default function WomenSalonandSpa() {
 
   const total     = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
   const itemCount = Object.values(cart).reduce((sum, { qty }) => sum + qty, 0);
+  useEffect(() => {
+  async function loadCartData() {
+    const user = getUser();
+
+    if (!user) {
+      const local = JSON.parse(localStorage.getItem("urbanease_cart") || "{}");
+      setCart(local);
+      return;
+    }
+
+    const token = await user.getIdToken();
+
+    const res = await fetch(`${BASE}/api/cart`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (data.cart) {
+      setCart(data.cart);
+      localStorage.setItem("urbanease_cart", JSON.stringify(data.cart));
+    }
+  }
+
+  loadCartData();
+}, []);
 
   // ── HLS video ─────────────────────────────────────────────────────────────
   useEffect(() => {
