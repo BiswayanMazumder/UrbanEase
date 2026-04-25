@@ -19,6 +19,82 @@ function saveCart(cart) {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
 }
 
+// ── Skeleton primitives ───────────────────────────────────────────────────────
+function SkeletonBox({ width = "100%", height = "16px", radius = "6px", style = {} }) {
+  return (
+    <div
+      className="skeleton-box"
+      style={{ width, height, borderRadius: radius, ...style }}
+    />
+  );
+}
+
+// Skeleton for left nav tabs
+function SkeletonTabs() {
+  return (
+    <div className="wss-tabs-box">
+      <SkeletonBox width="80px" height="13px" style={{ marginBottom: "14px" }} />
+      <ul className="wss-tabs">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <li key={i} className="wss-tab" style={{ cursor: "default" }}>
+            <div className="wss-tab-thumb">
+              <SkeletonBox width="56px" height="56px" radius="10px" />
+            </div>
+            <SkeletonBox width="60px" height="11px" style={{ marginTop: "6px" }} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Skeleton for a single package card
+function SkeletonPackageCard() {
+  return (
+    <div className="package-card skeleton-card">
+      <div className="package-details" style={{ flex: 1 }}>
+        <SkeletonBox width="70px" height="18px" radius="4px" style={{ marginBottom: "10px" }} />
+        <SkeletonBox width="55%" height="20px" style={{ marginBottom: "8px" }} />
+        <SkeletonBox width="35%" height="13px" style={{ marginBottom: "12px" }} />
+        <SkeletonBox width="45%" height="16px" style={{ marginBottom: "14px" }} />
+        <SkeletonBox width="100%" height="1px" style={{ marginBottom: "14px", opacity: 0.3 }} />
+        <SkeletonBox width="90%" height="12px" style={{ marginBottom: "7px" }} />
+        <SkeletonBox width="80%" height="12px" style={{ marginBottom: "7px" }} />
+        <SkeletonBox width="85%" height="12px" style={{ marginBottom: "18px" }} />
+        <SkeletonBox width="130px" height="34px" radius="8px" />
+      </div>
+      <div className="package-action" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+        <SkeletonBox width="62px" height="72px" radius="10px" />
+        <SkeletonBox width="62px" height="34px" radius="8px" />
+      </div>
+    </div>
+  );
+}
+
+// Skeleton for a single service card
+function SkeletonServiceCard() {
+  return (
+    <div className="svc-card skeleton-card">
+      <SkeletonBox width="100%" height="160px" radius="10px 10px 0 0" />
+      <div className="svc-details-row" style={{ padding: "12px 14px" }}>
+        <div className="svc-info" style={{ flex: 1 }}>
+          <SkeletonBox width="65%" height="15px" style={{ marginBottom: "8px" }} />
+          <SkeletonBox width="45%" height="12px" style={{ marginBottom: "8px" }} />
+          <SkeletonBox width="35%" height="13px" />
+        </div>
+        <div className="svc-action-col">
+          <SkeletonBox width="62px" height="34px" radius="8px" />
+        </div>
+      </div>
+      <div style={{ padding: "0 14px 10px" }}>
+        <SkeletonBox width="90%" height="11px" style={{ marginBottom: "5px" }} />
+        <SkeletonBox width="75%" height="11px" style={{ marginBottom: "5px" }} />
+      </div>
+      <SkeletonBox width="120px" height="32px" radius="6px" style={{ margin: "0 14px 14px" }} />
+    </div>
+  );
+}
+
 // ── QuantityBtn ───────────────────────────────────────────────────────────────
 function QuantityBtn({ id, price, cart, setCart }) {
   const qty = cart[id]?.qty ?? 0;
@@ -94,9 +170,9 @@ function ServiceCard({ service, cart, setCart }) {
 const BASE = "https://urban-ease-theta.vercel.app";
 
 export default function WomenSalonandSpa() {
-  const videoRef   = useRef(null);
-  const fillRef    = useRef(null);
-  const rightPaneRef = useRef(null); // ref for the scrollable right pane
+  const videoRef     = useRef(null);
+  const fillRef      = useRef(null);
+  const rightPaneRef = useRef(null);
 
   const [cart, setCart]           = useState(loadCart);
   const [activeTab, setActiveTab] = useState(null);
@@ -108,6 +184,14 @@ export default function WomenSalonandSpa() {
   const [koreanfacial,     setKoreanfacial]     = useState([]);
   const [signaturefacial,  setSignaturefacial]  = useState([]);
   const [pedicuremanicure, setPedicuremanicure] = useState([]);
+
+  // ── loading states ────────────────────────────────────────────────────────
+  const [loadingTabs,      setLoadingTabs]      = useState(true);
+  const [loadingPackages,  setLoadingPackages]  = useState(true);
+  const [loadingWaxing,    setLoadingWaxing]    = useState(true);
+  const [loadingKorean,    setLoadingKorean]    = useState(true);
+  const [loadingSignature, setLoadingSignature] = useState(true);
+  const [loadingPedicure,  setLoadingPedicure]  = useState(true);
 
   // ── tab → section id map (built once WomenService loads) ─────────────────
   const [tabSectionMap, setTabSectionMap] = useState({});
@@ -155,33 +239,34 @@ export default function WomenSalonandSpa() {
         setWomenService(tabs);
         if (tabs.length > 0) setActiveTab(tabs[0].id);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingTabs(false));
 
     // packages
     fetch(`${BASE}/api/packages`)
       .then((r) => r.json())
       .then((data) => setPackages(data.data || []))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingPackages(false));
 
     // services by category
     const categories = [
-      ["waxing",            setWaxingServices],
-      ["korean_facial",     setKoreanfacial],
-      ["signature_facial",  setSignaturefacial],
-      ["pedicure_manicure", setPedicuremanicure],
+      ["waxing",            setWaxingServices,   setLoadingWaxing],
+      ["korean_facial",     setKoreanfacial,     setLoadingKorean],
+      ["signature_facial",  setSignaturefacial,  setLoadingSignature],
+      ["pedicure_manicure", setPedicuremanicure, setLoadingPedicure],
     ];
 
-    categories.forEach(([cat, setter]) => {
+    categories.forEach(([cat, setter, setLoading]) => {
       fetch(`${BASE}/api/services/${cat}`)
         .then((r) => r.json())
         .then((data) => setter(data.data || []))
-        .catch(console.error);
+        .catch(console.error)
+        .finally(() => setLoading(false));
     });
   }, []);
 
   // ── build tab → section map once WomenService is populated ───────────────
-  // Tabs arrive in order: [super saver packages, waxing, korean, signature, pedicure]
-  // This matches the order sections appear in the right pane.
   useEffect(() => {
     if (WomenService.length === 0) return;
     const sectionIds = [
@@ -206,10 +291,9 @@ export default function WomenSalonandSpa() {
     const sectionEl = document.getElementById(sectionId);
     const paneEl    = rightPaneRef.current;
     if (!sectionEl || !paneEl) return;
-    // Scroll the right scrollable pane so the section appears at the top
-    const paneTop     = paneEl.getBoundingClientRect().top;
-    const sectionTop  = sectionEl.getBoundingClientRect().top;
-    const offset      = sectionTop - paneTop + paneEl.scrollTop - 16; // 16px breathing room
+    const paneTop    = paneEl.getBoundingClientRect().top;
+    const sectionTop = sectionEl.getBoundingClientRect().top;
+    const offset     = sectionTop - paneTop + paneEl.scrollTop - 16;
     paneEl.scrollTo({ top: offset, behavior: "smooth" });
   }
 
@@ -223,23 +307,28 @@ export default function WomenSalonandSpa() {
         <div className="wss-left">
           <h2 className="wss-title">Salon Prime</h2>
           <p className="wss-rating">⭐ 4.85 (17.3 M bookings)</p>
-          <div className="wss-tabs-box">
-            <p className="wss-select-label">Select a service</p>
-            <ul className="wss-tabs">
-              {WomenService.map((tab) => (
-                <li
-                  key={tab.id}
-                  className={`wss-tab${activeTab === tab.id ? " wss-tab--active" : ""}`}
-                  onClick={() => handleTabClick(tab)}
-                >
-                  <div className="wss-tab-thumb">
-                    <img src={tab.image} alt={tab.title} />
-                  </div>
-                  <span className="wss-tab-label">{tab.title}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+
+          {loadingTabs ? (
+            <SkeletonTabs />
+          ) : (
+            <div className="wss-tabs-box">
+              <p className="wss-select-label">Select a service</p>
+              <ul className="wss-tabs">
+                {WomenService.map((tab) => (
+                  <li
+                    key={tab.id}
+                    className={`wss-tab${activeTab === tab.id ? " wss-tab--active" : ""}`}
+                    onClick={() => handleTabClick(tab)}
+                  >
+                    <div className="wss-tab-thumb">
+                      <img src={tab.image} alt={tab.title} />
+                    </div>
+                    <span className="wss-tab-label">{tab.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* RIGHT SCROLL AREA */}
@@ -262,41 +351,48 @@ export default function WomenSalonandSpa() {
                 <div className="package-section" id="sec-packages">
                   <div className="package-heading">Super saver packages</div>
                   <div className="package-cards-col">
-                    {packages.map((pkg) => (
-                      <div key={pkg.id} className="package-card">
-                        <div className="package-details">
-                          <div className="package-tag">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#07794C">
-                              <path d="M9.3 3H4.8A1.8 1.8 0 003 4.8v14.4A1.8 1.8 0 004.8 21h14.4a1.8 1.8 0 001.8-1.8V4.8A1.8 1.8 0 0019.2 3h-4.5v9L12 10.65 9.3 12V3z" />
-                            </svg>
-                            <span>PACKAGE</span>
+                    {loadingPackages ? (
+                      <>
+                        <SkeletonPackageCard />
+                        <SkeletonPackageCard />
+                      </>
+                    ) : (
+                      packages.map((pkg) => (
+                        <div key={pkg.id} className="package-card">
+                          <div className="package-details">
+                            <div className="package-tag">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="#07794C">
+                                <path d="M9.3 3H4.8A1.8 1.8 0 003 4.8v14.4A1.8 1.8 0 004.8 21h14.4a1.8 1.8 0 001.8-1.8V4.8A1.8 1.8 0 0019.2 3h-4.5v9L12 10.65 9.3 12V3z" />
+                              </svg>
+                              <span>PACKAGE</span>
+                            </div>
+                            <h3 className="package-title">{pkg.title}</h3>
+                            <p className="package-rating">
+                              <span className="star-icon">★</span> 4.85 ({pkg.reviews} reviews)
+                            </p>
+                            <div className="package-pricing">
+                              <span className="price">₹{pkg.price.toLocaleString()}</span>
+                              <span className="old-price">₹{pkg.oldPrice.toLocaleString()}</span>
+                              <span className="duration">• {pkg.duration}</span>
+                            </div>
+                            <hr className="divider" />
+                            <ul className="package-includes">
+                              {pkg.includes.map((inc, i) => (
+                                <li key={i}><strong>{inc.label}:</strong> {inc.desc}</li>
+                              ))}
+                            </ul>
+                            <button className="edit-btn">Edit your package</button>
                           </div>
-                          <h3 className="package-title">{pkg.title}</h3>
-                          <p className="package-rating">
-                            <span className="star-icon">★</span> 4.85 ({pkg.reviews} reviews)
-                          </p>
-                          <div className="package-pricing">
-                            <span className="price">₹{pkg.price.toLocaleString()}</span>
-                            <span className="old-price">₹{pkg.oldPrice.toLocaleString()}</span>
-                            <span className="duration">• {pkg.duration}</span>
+                          <div className="package-action">
+                            <div className={`discount-badge ${pkg.badgeClass ?? ""}`}>
+                              <span className="discount-val">{pkg.discount}%</span>
+                              <span className="discount-label">OFF</span>
+                            </div>
+                            <QuantityBtn id={pkg.id} price={pkg.price} cart={cart} setCart={setCart} />
                           </div>
-                          <hr className="divider" />
-                          <ul className="package-includes">
-                            {pkg.includes.map((inc, i) => (
-                              <li key={i}><strong>{inc.label}:</strong> {inc.desc}</li>
-                            ))}
-                          </ul>
-                          <button className="edit-btn">Edit your package</button>
                         </div>
-                        <div className="package-action">
-                          <div className={`discount-badge ${pkg.badgeClass ?? ""}`}>
-                            <span className="discount-val">{pkg.discount}%</span>
-                            <span className="discount-label">OFF</span>
-                          </div>
-                          <QuantityBtn id={pkg.id} price={pkg.price} cart={cart} setCart={setCart} />
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -304,9 +400,17 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-waxing">
                   <div className="svc-section-heading">Waxing &amp; threading</div>
                   <div className="package-cards-col">
-                    {waxingServices.map((svc) => (
-                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
-                    ))}
+                    {loadingWaxing ? (
+                      <>
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                      </>
+                    ) : (
+                      waxingServices.map((svc) => (
+                        <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -314,9 +418,16 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-korean">
                   <div className="svc-section-heading">Korean facial</div>
                   <div className="package-cards-col">
-                    {koreanfacial.map((svc) => (
-                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
-                    ))}
+                    {loadingKorean ? (
+                      <>
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                      </>
+                    ) : (
+                      koreanfacial.map((svc) => (
+                        <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -324,9 +435,16 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-signature">
                   <div className="svc-section-heading">Signature facial</div>
                   <div className="package-cards-col">
-                    {signaturefacial.map((svc) => (
-                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
-                    ))}
+                    {loadingSignature ? (
+                      <>
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                      </>
+                    ) : (
+                      signaturefacial.map((svc) => (
+                        <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -334,9 +452,17 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-pedicure">
                   <div className="svc-section-heading">Pedicure &amp; manicure</div>
                   <div className="package-cards-col">
-                    {pedicuremanicure.map((svc) => (
-                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
-                    ))}
+                    {loadingPedicure ? (
+                      <>
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                        <SkeletonServiceCard />
+                      </>
+                    ) : (
+                      pedicuremanicure.map((svc) => (
+                        <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                      ))
+                    )}
                   </div>
                 </div>
 

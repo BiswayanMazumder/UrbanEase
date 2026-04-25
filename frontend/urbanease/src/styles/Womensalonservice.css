@@ -357,3 +357,34 @@
   .svc-banner-heading { font-size: 18px; }
   .svc-banner-price { font-size: 20px; }
 }
+/* ── Skeleton Loading ──────────────────────────────────────────────────────── */
+
+/* The shimmer keyframe — a highlight sweeps left to right */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton-box {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    #ececec 25%,
+    #f5f5f5 50%,
+    #ececec 75%
+  );
+  background-size: 600px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* Prevent skeleton cards from having hover effects / shadows */
+.skeleton-card {
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
+/* Stop images inside skeleton cards from showing broken icons */
+.skeleton-card img {
+  display: none;
+}
