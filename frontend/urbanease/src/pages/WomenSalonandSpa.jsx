@@ -56,13 +56,6 @@ function ServiceCard({ service, cart, setCart }) {
         <img src={service.bannerImg} alt={service.title} className="svc-banner-img" />
         <div className="svc-banner-overlay">
           <h3 className="svc-banner-heading">{service.bannerHeading}</h3>
-          {/* <div className="svc-banner-price-row">
-            <span className="svc-banner-price">₹{service.price.toLocaleString()}</span>
-            {service.oldPrice && (
-              <span className="svc-banner-old-price">₹{service.oldPrice.toLocaleString()}</span>
-            )}
-          </div> */}
-          {/* {service.bannerSub && <p className="svc-banner-sub">{service.bannerSub}</p>} */}
         </div>
       </div>
 
@@ -98,19 +91,33 @@ function ServiceCard({ service, cart, setCart }) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
+const BASE = "https://urban-ease-theta.vercel.app";
+
 export default function WomenSalonandSpa() {
-  const videoRef = useRef(null);
-  const fillRef = useRef(null);
+  const videoRef   = useRef(null);
+  const fillRef    = useRef(null);
+  const rightPaneRef = useRef(null); // ref for the scrollable right pane
 
-  const [cart, setCart] = useState(loadCart);
+  const [cart, setCart]           = useState(loadCart);
   const [activeTab, setActiveTab] = useState(null);
-  const [WomenService, SetWomenService] = useState([]);
 
-  const total = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
+  // ── data from DB ──────────────────────────────────────────────────────────
+  const [WomenService,     setWomenService]     = useState([]);
+  const [packages,         setPackages]         = useState([]);
+  const [waxingServices,   setWaxingServices]   = useState([]);
+  const [koreanfacial,     setKoreanfacial]     = useState([]);
+  const [signaturefacial,  setSignaturefacial]  = useState([]);
+  const [pedicuremanicure, setPedicuremanicure] = useState([]);
+
+  // ── tab → section id map (built once WomenService loads) ─────────────────
+  const [tabSectionMap, setTabSectionMap] = useState({});
+
+  const total     = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
   const itemCount = Object.values(cart).reduce((sum, { qty }) => sum + qty, 0);
 
+  // ── HLS video ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const src = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
+    const src   = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
     const video = videoRef.current;
     if (!video) return;
     const tryPlay = () => video.play().catch(() => {});
@@ -128,7 +135,7 @@ export default function WomenSalonandSpa() {
 
   useEffect(() => {
     const video = videoRef.current;
-    const fill = fillRef.current;
+    const fill  = fillRef.current;
     if (!video || !fill) return;
     const updateProgress = () => {
       if (!video.duration) return;
@@ -138,117 +145,75 @@ export default function WomenSalonandSpa() {
     return () => video.removeEventListener("timeupdate", updateProgress);
   }, []);
 
+  // ── fetch all DB data ──────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("https://urban-ease-theta.vercel.app/api/salon-prime")
-      .then((res) => res.json())
+    // salon-prime tabs
+    fetch(`${BASE}/api/salon-prime`)
+      .then((r) => r.json())
       .then((data) => {
         const tabs = data.data || [];
-        SetWomenService(tabs);
+        setWomenService(tabs);
         if (tabs.length > 0) setActiveTab(tabs[0].id);
       })
-      .catch((err) => console.error(err));
+      .catch(console.error);
+
+    // packages
+    fetch(`${BASE}/api/packages`)
+      .then((r) => r.json())
+      .then((data) => setPackages(data.data || []))
+      .catch(console.error);
+
+    // services by category
+    const categories = [
+      ["waxing",            setWaxingServices],
+      ["korean_facial",     setKoreanfacial],
+      ["signature_facial",  setSignaturefacial],
+      ["pedicure_manicure", setPedicuremanicure],
+    ];
+
+    categories.forEach(([cat, setter]) => {
+      fetch(`${BASE}/api/services/${cat}`)
+        .then((r) => r.json())
+        .then((data) => setter(data.data || []))
+        .catch(console.error);
+    });
   }, []);
 
-  const packages = [
-    {
-      id: "pkg-myop", title: "Make your own package", reviews: "8.2M",
-      price: 3192, oldPrice: 4256, duration: "3 hrs 35 mins", discount: 25,
-      includes: [
-        { label: "Waxing", desc: "Full arms (including underarms) - Chocolate roll-on wax, Full legs - Chocolate roll-o…" },
-        { label: "Facial & cleanup", desc: "Glass skin hydration facial" },
-        { label: "Pedicure", desc: "Candle Spa pedicure" },
-      ],
-    },
-    {
-      id: "pkg-monthly", title: "Monthly maintenance package", reviews: "6.3M",
-      price: 1975, oldPrice: 2324, duration: "2 hrs 10 mins", discount: 15,
-      badgeClass: "discount-badge--green",
-      includes: [
-        { label: "Waxing", desc: "Full arms (including underarms) - Chocolate Roll on, Full legs - Chocolate Roll on" },
-        { label: "Cleanup", desc: "Sara fruit cleanup" },
-        { label: "Manicure", desc: "Cut, file & polish - feet" },
-      ],
-    },
-    {
-      id: "pkg-waxglow", title: "Wax and glow", reviews: "8.2M",
-      price: 3192, oldPrice: 4256, duration: "3 hrs 35 mins", discount: 20,
-      includes: [
-        { label: "Waxing", desc: "Full arms (including underarms) - Chocolate roll-on wax, Full legs - Chocolate roll-o…" },
-        { label: "Facial & cleanup", desc: "Glass skin hydration facial" },
-        { label: "Facial hair removal", desc: "Eyebrow, Upper lip - Threading" },
-      ],
-    },
-    {
-      id: "pkg-myop2", title: "Make your own package", reviews: "8.2M",
-      price: 3192, oldPrice: 4256, duration: "3 hrs 35 mins", discount: 25,
-      includes: [
-        { label: "Waxing", desc: "Full arms (including underarms) - Chocolate roll-on wax, Full legs - Chocolate roll-o…" },
-        { label: "Facial & cleanup", desc: "Glass skin hydration facial" },
-        { label: "Pedicure", desc: "Candle Spa pedicure" },
-      ],
-    },
-  ];
+  // ── build tab → section map once WomenService is populated ───────────────
+  // Tabs arrive in order: [super saver packages, waxing, korean, signature, pedicure]
+  // This matches the order sections appear in the right pane.
+  useEffect(() => {
+    if (WomenService.length === 0) return;
+    const sectionIds = [
+      "sec-packages",
+      "sec-waxing",
+      "sec-korean",
+      "sec-signature",
+      "sec-pedicure",
+    ];
+    const map = {};
+    WomenService.forEach((tab, i) => {
+      if (sectionIds[i]) map[tab.id] = sectionIds[i];
+    });
+    setTabSectionMap(map);
+  }, [WomenService]);
 
-  const waxingServices = [
-    {
-      id: "svc-rollon-full", badge: "Price drop",
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1767956363016-ba4f36.jpeg",
-      bannerHeading: null, price: 899, oldPrice: 1198,
-      bannerSub: "Full arms, legs & underarms",
-      title: "Roll-on waxing (Full arms, legs & underarms)",
-      rating: "4.87", reviews: "149K", options: 2,
-      bullets: ["Hygienic & single-use with no risk of burns", "Two wax types for you to pick from: RICA or white chocolate"],
-    },
-    {
-      id: "svc-spatula", badge: "Price drop",
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1767955136930-22342b.jpeg",
-      bannerHeading: null, price: 699, oldPrice: 748,
-      bannerSub: "Full arms, legs & underarms",
-      title: "Spatula waxing (Full arms, legs & underarms)",
-      rating: "4.85", reviews: "98K", options: 2,
-      bullets: ["Classic wax application using a spatula", "Available in chocolate and fruit flavour"],
-    },
-    {
-      id: "svc-threading", badge: null,
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1767956045252-189708.jpeg",
-      bannerHeading: null, price: 1299, oldPrice: 1548,
-      bannerSub: "Precise, quick & painless",
-      title: "Eyebrow threading + Upper lip threading",
-      rating: "4.82", reviews: "210K", options: null,
-      bullets: ["Defines your brow shape perfectly", "Trained beauticians with 4.5+ ratings"],
-    },
-  ];
+  // ── handle tab click: set active + scroll right pane to section ───────────
+  function handleTabClick(tab) {
+    setActiveTab(tab.id);
+    const sectionId = tabSectionMap[tab.id];
+    if (!sectionId) return;
+    const sectionEl = document.getElementById(sectionId);
+    const paneEl    = rightPaneRef.current;
+    if (!sectionEl || !paneEl) return;
+    // Scroll the right scrollable pane so the section appears at the top
+    const paneTop     = paneEl.getBoundingClientRect().top;
+    const sectionTop  = sectionEl.getBoundingClientRect().top;
+    const offset      = sectionTop - paneTop + paneEl.scrollTop - 16; // 16px breathing room
+    paneEl.scrollTo({ top: offset, behavior: "smooth" });
+  }
 
-  const koreanfacial = [
-    {
-      id: "svc-rollon-full", badge: "Best Seller",
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1772003052492-592413.jpeg",
-      bannerHeading: null, price: 1749, oldPrice: 1000,
-      bannerSub: "Korean Glass Hydration Facial",
-      title: "Korean Glass Hydration Facial",
-      rating: "4.87", reviews: "149K", options: null,
-      bullets: ["Delivers long-lasting hydration for a dewy, glass-skin glow", "Suitable for normal to dry skin"],
-    },
-    {
-      id: "svc-spatula", badge: "Recommended",
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1770719181059-3c9384.jpeg",
-      bannerHeading: null, price: 1849, oldPrice: null,
-      bannerSub: "Full arms, legs & underarms",
-      title: "Korean Plant-peptide brightening facial",
-      rating: "4.82", reviews: "35K", options: null,
-      bullets: ["Smoothens uneven patches for a clearer, more even complexion", "Suitable for oily & combination skin"],
-    },
-    {
-      id: "svc-threading", badge: null,
-      bannerImg: "https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_1232,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/supply/customer-app-supply/1767956045252-189708.jpeg",
-      bannerHeading: null, price: 1299, oldPrice: 1548,
-      bannerSub: "Precise, quick & painless",
-      title: "Eyebrow threading + Upper lip threading",
-      rating: "4.82", reviews: "210K", options: null,
-      bullets: ["Defines your brow shape perfectly", "Trained beauticians with 4.5+ ratings"],
-    },
-  ];
-
+  // ── render ────────────────────────────────────────────────────────────────
   return (
     <div className="wss-root">
       <HomepageNavBar />
@@ -265,7 +230,7 @@ export default function WomenSalonandSpa() {
                 <li
                   key={tab.id}
                   className={`wss-tab${activeTab === tab.id ? " wss-tab--active" : ""}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabClick(tab)}
                 >
                   <div className="wss-tab-thumb">
                     <img src={tab.image} alt={tab.title} />
@@ -278,7 +243,7 @@ export default function WomenSalonandSpa() {
         </div>
 
         {/* RIGHT SCROLL AREA */}
-        <div className="wss-right">
+        <div className="wss-right" ref={rightPaneRef}>
           <div className="wss-content">
 
             {/* VIDEO */}
@@ -289,14 +254,12 @@ export default function WomenSalonandSpa() {
               </div>
             </div>
 
-            {/* ── MAIN LAYOUT: content col + single sidebar ── */}
+            {/* ── MAIN LAYOUT ── */}
             <div className="main-layout">
-
-              {/* LEFT CONTENT COLUMN — both sections stacked */}
               <div className="main-content-col">
 
                 {/* SUPER SAVER PACKAGES */}
-                <div className="package-section">
+                <div className="package-section" id="sec-packages">
                   <div className="package-heading">Super saver packages</div>
                   <div className="package-cards-col">
                     {packages.map((pkg) => (
@@ -338,22 +301,45 @@ export default function WomenSalonandSpa() {
                 </div>
 
                 {/* WAXING & THREADING */}
-                <div className="svc-section">
+                <div className="svc-section" id="sec-waxing">
                   <div className="svc-section-heading">Waxing &amp; threading</div>
                   <div className="package-cards-col">
                     {waxingServices.map((svc) => (
-                      <ServiceCard key={svc.id} service={svc} cart={cart} setCart={setCart} />
+                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
                     ))}
                   </div>
                 </div>
-                <div className="svc-section">
+
+                {/* KOREAN FACIAL */}
+                <div className="svc-section" id="sec-korean">
                   <div className="svc-section-heading">Korean facial</div>
                   <div className="package-cards-col">
                     {koreanfacial.map((svc) => (
-                      <ServiceCard key={svc.id} service={svc} cart={cart} setCart={setCart} />
+                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
                     ))}
                   </div>
                 </div>
+
+                {/* SIGNATURE FACIAL */}
+                <div className="svc-section" id="sec-signature">
+                  <div className="svc-section-heading">Signature facial</div>
+                  <div className="package-cards-col">
+                    {signaturefacial.map((svc) => (
+                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* PEDICURE & MANICURE */}
+                <div className="svc-section" id="sec-pedicure">
+                  <div className="svc-section-heading">Pedicure &amp; manicure</div>
+                  <div className="package-cards-col">
+                    {pedicuremanicure.map((svc) => (
+                      <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
+                    ))}
+                  </div>
+                </div>
+
               </div>
 
               {/* SINGLE STICKY SIDEBAR */}
