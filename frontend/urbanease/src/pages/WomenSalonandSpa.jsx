@@ -202,69 +202,76 @@ function ServiceCard({ service, cart, setCart }) {
 const BASE = "https://urban-ease-theta.vercel.app";
 
 export default function WomenSalonandSpa() {
-  const videoRef     = useRef(null);
-  const fillRef      = useRef(null);
+  const videoRef = useRef(null);
+  const fillRef = useRef(null);
   const rightPaneRef = useRef(null);
 
-  const [cart, setCart]           = useState(loadCart);
+  const [cart, setCart] = useState(loadCart);
   const [activeTab, setActiveTab] = useState(null);
 
   // ── data from DB ──────────────────────────────────────────────────────────
-  const [WomenService,     setWomenService]     = useState([]);
-  const [packages,         setPackages]         = useState([]);
-  const [waxingServices,   setWaxingServices]   = useState([]);
-  const [koreanfacial,     setKoreanfacial]     = useState([]);
-  const [signaturefacial,  setSignaturefacial]  = useState([]);
+  const [WomenService, setWomenService] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [waxingServices, setWaxingServices] = useState([]);
+  const [koreanfacial, setKoreanfacial] = useState([]);
+  const [signaturefacial, setSignaturefacial] = useState([]);
   const [pedicuremanicure, setPedicuremanicure] = useState([]);
+  const [discounts, setDiscounts] = useState([]);
 
   // ── loading states ────────────────────────────────────────────────────────
-  const [loadingTabs,      setLoadingTabs]      = useState(true);
-  const [loadingPackages,  setLoadingPackages]  = useState(true);
-  const [loadingWaxing,    setLoadingWaxing]    = useState(true);
-  const [loadingKorean,    setLoadingKorean]    = useState(true);
+  const [loadingTabs, setLoadingTabs] = useState(true);
+  const [loadingPackages, setLoadingPackages] = useState(true);
+  const [loadingWaxing, setLoadingWaxing] = useState(true);
+  const [loadingKorean, setLoadingKorean] = useState(true);
   const [loadingSignature, setLoadingSignature] = useState(true);
-  const [loadingPedicure,  setLoadingPedicure]  = useState(true);
+  const [loadingPedicure, setLoadingPedicure] = useState(true);
+  const [offersExpanded, setOffersExpanded] = useState(false);
 
   // ── tab → section id map (built once WomenService loads) ─────────────────
   const [tabSectionMap, setTabSectionMap] = useState({});
 
-  const total     = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
+  const total = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
   const itemCount = Object.values(cart).reduce((sum, { qty }) => sum + qty, 0);
   useEffect(() => {
-  async function loadCartData() {
-    const user = getUser();
+    async function loadCartData() {
+      const user = getUser();
 
-    if (!user) {
-      const local = JSON.parse(localStorage.getItem("urbanease_cart") || "{}");
-      setCart(local);
-      return;
+      if (!user) {
+        const local = JSON.parse(localStorage.getItem("urbanease_cart") || "{}");
+        setCart(local);
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      const res = await fetch(`${BASE}/api/cart`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (data.cart) {
+        setCart(data.cart);
+        localStorage.setItem("urbanease_cart", JSON.stringify(data.cart));
+      }
     }
 
-    const token = await user.getIdToken();
-
-    const res = await fetch(`${BASE}/api/cart`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await res.json();
-
-    if (data.cart) {
-      setCart(data.cart);
-      localStorage.setItem("urbanease_cart", JSON.stringify(data.cart));
-    }
-  }
-
-  loadCartData();
-}, []);
-
+    loadCartData();
+  }, []);
+  useEffect(() => {
+    fetch(`${BASE}/api/discounts`)
+      .then((r) => r.json())
+      .then((data) => setDiscounts(data.data || []))
+      .catch(console.error);
+  }, []);
   // ── HLS video ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const src   = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
+    const src = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
     const video = videoRef.current;
     if (!video) return;
-    const tryPlay = () => video.play().catch(() => {});
+    const tryPlay = () => video.play().catch(() => { });
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
       video.addEventListener("loadedmetadata", tryPlay, { once: true });
@@ -279,7 +286,7 @@ export default function WomenSalonandSpa() {
 
   useEffect(() => {
     const video = videoRef.current;
-    const fill  = fillRef.current;
+    const fill = fillRef.current;
     if (!video || !fill) return;
     const updateProgress = () => {
       if (!video.duration) return;
@@ -311,9 +318,9 @@ export default function WomenSalonandSpa() {
 
     // services by category
     const categories = [
-      ["waxing",            setWaxingServices,   setLoadingWaxing],
-      ["korean_facial",     setKoreanfacial,     setLoadingKorean],
-      ["signature_facial",  setSignaturefacial,  setLoadingSignature],
+      ["waxing", setWaxingServices, setLoadingWaxing],
+      ["korean_facial", setKoreanfacial, setLoadingKorean],
+      ["signature_facial", setSignaturefacial, setLoadingSignature],
       ["pedicure_manicure", setPedicuremanicure, setLoadingPedicure],
     ];
 
@@ -349,11 +356,11 @@ export default function WomenSalonandSpa() {
     const sectionId = tabSectionMap[tab.id];
     if (!sectionId) return;
     const sectionEl = document.getElementById(sectionId);
-    const paneEl    = rightPaneRef.current;
+    const paneEl = rightPaneRef.current;
     if (!sectionEl || !paneEl) return;
-    const paneTop    = paneEl.getBoundingClientRect().top;
+    const paneTop = paneEl.getBoundingClientRect().top;
     const sectionTop = sectionEl.getBoundingClientRect().top;
-    const offset     = sectionTop - paneTop + paneEl.scrollTop - 16;
+    const offset = sectionTop - paneTop + paneEl.scrollTop - 16;
     paneEl.scrollTo({ top: offset, behavior: "smooth" });
   }
 
@@ -530,28 +537,31 @@ export default function WomenSalonandSpa() {
 
               {/* SINGLE STICKY SIDEBAR */}
               <div className="main-sidebar">
-                <div className="sidebar-promo">
-                  <div className="promo-icon">%</div>
-                  <div className="promo-text">
-                    <p>Get ₹50 coupon</p>
-                    <span>After first service delivery</span>
-                  </div>
-                </div>
+                <div className="sidebar-offers-box">
+                  {discounts
+                    .slice(0, offersExpanded ? discounts.length : 1)
+                    .map((d, i) => (
+                      <div
+                        key={d.id}
+                        className={`sidebar-promo${i > 0 ? " sidebar-promo--extra" : ""}`}
+                      >
+                        <div className="promo-icon">%</div>
+                        <div className="promo-text">
+                          <p>{d.title}</p>
+                          <span>{d.description}</span>
+                        </div>
+                      </div>
+                    ))}
 
-                <div className="uc-promise-card">
-                  <div className="uc-promise-header">
-                    <h4>UC Promise</h4>
-                    <div className="qa-badge-circle">
-                      <span className="qa-text">QUALITY<br />ASSURED</span>
-                    </div>
-                  </div>
-                  <ul>
-                    <li>✔ 4.5+ Rated Beauticians</li>
-                    <li>✔ Luxury Salon Experience</li>
-                    <li>✔ Premium Branded Products</li>
-                  </ul>
+                  {discounts.length > 1 && (
+                    <button
+                      className="offers-toggle-btn"
+                      onClick={() => setOffersExpanded((v) => !v)}
+                    >
+                      {offersExpanded ? "View Less Offers ▲" : "View More Offers ▼"}
+                    </button>
+                  )}
                 </div>
-
                 {itemCount === 0 ? (
                   <div className="cart-empty">
                     <img src="https://cdn-icons-png.flaticon.com/512/11329/11329961.png" alt="cart" />

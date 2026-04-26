@@ -2,7 +2,7 @@
   width: 100%;
   min-height: 100vh;
   background: #fff;
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'roboto', sans-serif;
 }
 
 .wss-body {
@@ -104,6 +104,7 @@
   gap: 14px;
   position: sticky;
   top: 20px;
+  margin-top: 52px; /* aligns sidebar with package cards, not the heading */
 }
 
 /* ─── PACKAGE SECTION ────────────────────────────────────────────────────────── */
@@ -387,4 +388,45 @@
 /* Stop images inside skeleton cards from showing broken icons */
 .skeleton-card img {
   display: none;
+}
+/* ─── OFFERS BOX ─────────────────────────────────────────────────────────────── */
+.sidebar-offers-box {
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.sidebar-promo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  /* remove old border/radius since parent now handles it */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.sidebar-promo--extra {
+  border-top: 1px solid #f0f0f0;
+}
+
+.offers-toggle-btn {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid #f0f0f0;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 550;
+  color: #572AC8;
+  cursor: pointer;
+  
+  transition: background 0.15s;
+}
+.offers-toggle-btn:hover {
+  background: #f6f0ff;
 }
