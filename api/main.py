@@ -477,7 +477,29 @@ def get_services_by_category(category: str):
     ]
     cur.close(); conn.close()
     return {"status": "success", "data": data}
-
+@app.get("/api/discounts")
+def get_discounts():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, code, title, description
+        FROM discounts
+        WHERE is_active = TRUE
+        ORDER BY sort_order ASC
+    """)
+    rows = cur.fetchall()
+    data = [
+        {
+            "id":          r[0],
+            "code":        r[1],
+            "title":       r[2],
+            "description": r[3],
+        }
+        for r in rows
+    ]
+    cur.close()
+    conn.close()
+    return {"status": "success", "data": data}
 # ─────────────────────────────────────────────
 #  LEGACY /api/login removed —
 #  authentication is now done entirely through
