@@ -95,7 +95,7 @@ export default function Homepagedetailsservicable() {
                                         <p>Women's Salon & Spa</p>
                                     </div>
 
-                                    <div className="dhjdbjdnj">
+                                    <div className="dhjdbjdnj" onClick={()=>navigate("/salon-prime")}>
                                         <img src="https://www.urbancompany.com/img?bucket=urbanclap-prod&quality=90&format=auto/w_56,dpr_2,fl_progressive:steep,q_auto:low,f_auto,c_limit/images/growth/home-screen/1774526691081-afedc4.jpeg" alt="" />
                                         <p>Salon Prime</p>
                                     </div>
