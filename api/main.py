@@ -6,14 +6,7 @@ import os
 import httpx
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-#  Firebase public-key endpoint (no Admin SDK)
-# ─────────────────────────────────────────────
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")   
-FIREBASE_VERIFY_URL = (
-    "https://identitytoolkit.googleapis.com/v1/accounts:lookup"
-    "?key={api_key}"
-)
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 FIREBASE_JWKS_URL = (
     "https://www.googleapis.com/service_accounts/v1/jwk/"
     "securetoken@system.gserviceaccount.com"
@@ -23,14 +16,14 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # tighten in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")   # Web API key from Firebase console
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 
 
 # ─────────────────────────────────────────────
@@ -42,16 +35,8 @@ def get_conn():
 
 # ─────────────────────────────────────────────
 #  Firebase token verification
-#  We call Firebase's tokeninfo endpoint so we
-#  never need the Admin SDK / service-account key.
 # ─────────────────────────────────────────────
 async def verify_firebase_token(request: Request) -> dict:
-    """
-    Extracts the Bearer token from the Authorization header,
-    verifies it with Firebase REST API, and returns the decoded
-    payload dict  { uid, email, name, ... }.
-    Raises HTTP 401 on any failure.
-    """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
@@ -78,10 +63,6 @@ async def verify_firebase_token(request: Request) -> dict:
 
     firebase_user = users[0]
 
-    # Optional: reject email-unverified users (uncomment if needed)
-    # if not firebase_user.get("emailVerified", False):
-    #     raise HTTPException(status_code=403, detail="Email not verified")
-
     return {
         "uid":            firebase_user.get("localId"),
         "email":          firebase_user.get("email"),
@@ -94,7 +75,6 @@ async def verify_firebase_token(request: Request) -> dict:
 
 # ─────────────────────────────────────────────
 #  Session table bootstrap
-#  (run once; idempotent thanks to IF NOT EXISTS)
 # ─────────────────────────────────────────────
 def ensure_sessions_table():
     conn = get_conn()
@@ -118,7 +98,6 @@ def ensure_sessions_table():
 try:
     ensure_sessions_table()
 except Exception as e:
-    # Don't crash on cold start if DB isn't ready yet
     print(f"[WARN] Could not create sessions table: {e}")
 
 
@@ -126,10 +105,6 @@ except Exception as e:
 #  Session helpers
 # ─────────────────────────────────────────────
 def upsert_session(firebase_uid: str, email: str, user_agent: str, ip: str):
-    """
-    Creates a new session row or refreshes last_seen_at if one already
-    exists for this uid from the same user-agent / IP combo.
-    """
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -137,14 +112,11 @@ def upsert_session(firebase_uid: str, email: str, user_agent: str, ip: str):
         VALUES (%s, %s, %s, %s)
         ON CONFLICT DO NOTHING;
     """, (firebase_uid, email, user_agent, ip))
-
-    # Always refresh last_seen_at so we can track activity
     cur.execute("""
         UPDATE user_sessions
         SET last_seen_at = NOW()
         WHERE firebase_uid = %s AND user_agent = %s AND ip_address = %s;
     """, (firebase_uid, user_agent, ip))
-
     conn.commit()
     cur.close()
     conn.close()
@@ -254,141 +226,34 @@ def get_large_appliances():
     data = [{"id": r[0], "title": r[1], "price": r[2], "rating": r[3], "image": r[4]} for r in rows]
     cur.close(); conn.close()
     return {"status": "success", "data": data}
+
+
 @app.get("/api/salon-prime")
 def get_salon_prime():
     conn = get_conn()
     cur = conn.cursor()
-
     cur.execute("SELECT id, title, image FROM salon_prime")
     rows = cur.fetchall()
-
-    data = [
-        {
-            "id": r[0],
-            "title": r[1],
-            "image": r[2],
-        }
-        for r in rows
-    ]
-
+    data = [{"id": r[0], "title": r[1], "image": r[2]} for r in rows]
     cur.close()
     conn.close()
-
     return {"status": "success", "data": data}
+
+
 @app.get("/api/men-salon-prime")
-def get_salon_prime():
+def get_men_salon_prime():
     conn = get_conn()
     cur = conn.cursor()
-
     cur.execute("SELECT id, title, image FROM men_salon_prime")
     rows = cur.fetchall()
-
-    data = [
-        {
-            "id": r[0],
-            "title": r[1],
-            "image": r[2],
-        }
-        for r in rows
-    ]
-
+    data = [{"id": r[0], "title": r[1], "image": r[2]} for r in rows]
     cur.close()
     conn.close()
-
     return {"status": "success", "data": data}
-# ─────────────────────────────────────────────
-#  PROTECTED ROUTES  (Firebase token required)
-# ─────────────────────────────────────────────
-
-@app.post("/api/users")
-async def create_user(request: Request):
-    """
-    Called after signup / login from the frontend.
-    Verifies the Firebase ID token, upserts the user in Postgres,
-    and records a session row.
-    """
-    payload = await verify_firebase_token(request)
-
-    body = await request.json()
-
-    firebase_uid = payload["uid"]
-    email        = payload["email"]
-    name         = body.get("name") or payload.get("name") or ""
-
-    if not firebase_uid or not email:
-        raise HTTPException(status_code=400, detail="Token missing uid or email")
-
-    conn = get_conn()
-    cur  = conn.cursor()
-
-    # Upsert user row — update name if it changed
-    cur.execute("""
-        INSERT INTO users (firebase_uid, name, email)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (firebase_uid)
-        DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email;
-    """, (firebase_uid, name, email))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    # Record / refresh session
-    user_agent = request.headers.get("user-agent", "")
-    ip_address = request.client.host if request.client else ""
-    upsert_session(firebase_uid, email, user_agent, ip_address)
-
-    return {"status": "user saved", "uid": firebase_uid, "email": email}
 
 
-@app.get("/api/me")
-async def get_me(request: Request):
-    """
-    Returns the currently authenticated user's profile from the DB.
-    Frontend calls this on app load to restore the session UI.
-    """
-    payload = await verify_firebase_token(request)
+# ── WOMEN packages & services (existing tables) ───────────────────────────────
 
-    firebase_uid = payload["uid"]
-
-    conn = get_conn()
-    cur  = conn.cursor()
-
-    cur.execute("""
-        SELECT firebase_uid, name, email
-        FROM users
-        WHERE firebase_uid = %s;
-    """, (firebase_uid,))
-
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="User not found in database")
-
-    # Refresh last_seen_at in sessions
-    user_agent = request.headers.get("user-agent", "")
-    ip_address = request.client.host if request.client else ""
-    upsert_session(firebase_uid, payload["email"], user_agent, ip_address)
-
-    return {
-        "status":       "success",
-        "firebase_uid": row[0],
-        "name":         row[1],
-        "email":        row[2],
-    }
-
-
-@app.post("/api/logout")
-async def logout(request: Request):
-    """
-    Deletes all server-side sessions for this user.
-    The frontend is responsible for calling Firebase signOut() as well.
-    """
-    payload = await verify_firebase_token(request)
-    delete_sessions(payload["uid"])
-    return {"status": "logged out"}
 @app.get("/api/packages")
 def get_packages():
     conn = get_conn()
@@ -408,63 +273,13 @@ def get_packages():
             "duration":   r[5],
             "discount":   r[6],
             "badgeClass": r[7],
-            "includes":   r[8],   # already a list — psycopg2 parses JSONB
+            "includes":   r[8],
         }
         for r in rows
     ]
     cur.close(); conn.close()
     return {"status": "success", "data": data}
-@app.post("/api/cart")
-async def save_cart(request: Request):
-    payload = await verify_firebase_token(request)
-    firebase_uid = payload["uid"]
 
-    body = await request.json()
-    items = body.get("items", [])
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    # Clear old cart
-    cur.execute("DELETE FROM cart_items WHERE firebase_uid = %s", (firebase_uid,))
-
-    # Insert new cart
-    for item in items:
-        cur.execute("""
-            INSERT INTO cart_items (firebase_uid, product_id, quantity, price)
-            VALUES (%s, %s, %s, %s)
-        """, (firebase_uid, item["id"], item["qty"], item["price"]))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {"status": "cart saved"}
-@app.get("/api/cart")
-async def get_cart(request: Request):
-    payload = await verify_firebase_token(request)
-    firebase_uid = payload["uid"]
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT product_id, quantity, price
-        FROM cart_items
-        WHERE firebase_uid = %s
-    """, (firebase_uid,))
-
-    rows = cur.fetchall()
-
-    cart = {
-        r[0]: {"qty": r[1], "price": float(r[2])}
-        for r in rows
-    }
-
-    cur.close()
-    conn.close()
-
-    return {"status": "success", "cart": cart}
 
 @app.get("/api/services/{category}")
 def get_services_by_category(category: str):
@@ -491,12 +306,196 @@ def get_services_by_category(category: str):
             "bannerImg":     r[9],
             "bannerHeading": r[10],
             "bannerSub":     r[11],
-            "bullets":       r[12],  # JSONB → list
+            "bullets":       r[12],
         }
         for r in rows
     ]
     cur.close(); conn.close()
     return {"status": "success", "data": data}
+
+
+# ── MEN packages & services (new tables) ─────────────────────────────────────
+
+@app.get("/api/men/packages")
+def get_men_packages():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, title, reviews, price, old_price, duration, discount, badge, includes
+        FROM men_packages
+    """)
+    rows = cur.fetchall()
+    data = [
+        {
+            "id":       r[0],
+            "title":    r[1],
+            "reviews":  r[2],
+            "price":    r[3],
+            "oldPrice": r[4],
+            "duration": r[5],
+            "discount": r[6],
+            "badge":    r[7],
+            "includes": r[8],
+        }
+        for r in rows
+    ]
+    cur.close(); conn.close()
+    return {"status": "success", "data": data}
+
+
+@app.get("/api/men/services/{category}")
+def get_men_services_by_category(category: str):
+    """
+    Categories available:
+      haircut_beard_styling | facial_cleanup | detan |
+      manicure_pedicure     | massage        | hair_color
+    """
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, category, title, price, old_price, rating, reviews,
+               options, badge, banner_img, description, bullets
+        FROM men_services
+        WHERE category = %s
+    """, (category,))
+    rows = cur.fetchall()
+    data = [
+        {
+            "id":          r[0],
+            "category":    r[1],
+            "title":       r[2],
+            "price":       r[3],
+            "oldPrice":    r[4],
+            "rating":      r[5],
+            "reviews":     r[6],
+            "options":     r[7],
+            "badge":       r[8],
+            "bannerImg":   r[9],
+            "description": r[10],
+            "bullets":     r[11],
+        }
+        for r in rows
+    ]
+    cur.close(); conn.close()
+    return {"status": "success", "data": data}
+
+
+# ─────────────────────────────────────────────
+#  PROTECTED ROUTES  (Firebase token required)
+# ─────────────────────────────────────────────
+
+@app.post("/api/users")
+async def create_user(request: Request):
+    payload = await verify_firebase_token(request)
+    body = await request.json()
+
+    firebase_uid = payload["uid"]
+    email        = payload["email"]
+    name         = body.get("name") or payload.get("name") or ""
+
+    if not firebase_uid or not email:
+        raise HTTPException(status_code=400, detail="Token missing uid or email")
+
+    conn = get_conn()
+    cur  = conn.cursor()
+    cur.execute("""
+        INSERT INTO users (firebase_uid, name, email)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (firebase_uid)
+        DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email;
+    """, (firebase_uid, name, email))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    user_agent = request.headers.get("user-agent", "")
+    ip_address = request.client.host if request.client else ""
+    upsert_session(firebase_uid, email, user_agent, ip_address)
+
+    return {"status": "user saved", "uid": firebase_uid, "email": email}
+
+
+@app.get("/api/me")
+async def get_me(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    conn = get_conn()
+    cur  = conn.cursor()
+    cur.execute("""
+        SELECT firebase_uid, name, email
+        FROM users
+        WHERE firebase_uid = %s;
+    """, (firebase_uid,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found in database")
+
+    user_agent = request.headers.get("user-agent", "")
+    ip_address = request.client.host if request.client else ""
+    upsert_session(firebase_uid, payload["email"], user_agent, ip_address)
+
+    return {
+        "status":       "success",
+        "firebase_uid": row[0],
+        "name":         row[1],
+        "email":        row[2],
+    }
+
+
+@app.post("/api/logout")
+async def logout(request: Request):
+    payload = await verify_firebase_token(request)
+    delete_sessions(payload["uid"])
+    return {"status": "logged out"}
+
+
+@app.post("/api/cart")
+async def save_cart(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    body = await request.json()
+    items = body.get("items", [])
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM cart_items WHERE firebase_uid = %s", (firebase_uid,))
+    for item in items:
+        cur.execute("""
+            INSERT INTO cart_items (firebase_uid, product_id, quantity, price)
+            VALUES (%s, %s, %s, %s)
+        """, (firebase_uid, item["id"], item["qty"], item["price"]))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"status": "cart saved"}
+
+
+@app.get("/api/cart")
+async def get_cart(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT product_id, quantity, price
+        FROM cart_items
+        WHERE firebase_uid = %s
+    """, (firebase_uid,))
+    rows = cur.fetchall()
+    cart = {r[0]: {"qty": r[1], "price": float(r[2])} for r in rows}
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "cart": cart}
+
+
 @app.get("/api/discounts")
 def get_discounts():
     conn = get_conn()
@@ -520,12 +519,7 @@ def get_discounts():
     cur.close()
     conn.close()
     return {"status": "success", "data": data}
-# ─────────────────────────────────────────────
-#  LEGACY /api/login removed —
-#  authentication is now done entirely through
-#  Firebase on the frontend; the backend only
-#  validates Firebase ID tokens.
-# ─────────────────────────────────────────────
+
 
 # Vercel / AWS Lambda handler
 handler = Mangum(app)
