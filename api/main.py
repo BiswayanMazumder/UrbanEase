@@ -275,7 +275,27 @@ def get_salon_prime():
     conn.close()
 
     return {"status": "success", "data": data}
+@app.get("/api/men-salon-prime")
+def get_salon_prime():
+    conn = get_conn()
+    cur = conn.cursor()
 
+    cur.execute("SELECT id, title, image FROM men_salon_prime")
+    rows = cur.fetchall()
+
+    data = [
+        {
+            "id": r[0],
+            "title": r[1],
+            "image": r[2],
+        }
+        for r in rows
+    ]
+
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "data": data}
 # ─────────────────────────────────────────────
 #  PROTECTED ROUTES  (Firebase token required)
 # ─────────────────────────────────────────────
