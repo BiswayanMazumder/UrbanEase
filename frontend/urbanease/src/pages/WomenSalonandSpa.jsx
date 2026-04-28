@@ -1,57 +1,77 @@
 import "../styles/Womensalonservice.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import HomepageNavBar from "../components/Homepagenav.jsx";
 import Hls from "hls.js";
 import { getAuth } from "firebase/auth";
-// ── helpers ──────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────
+const BASE = "https://urban-ease-theta.vercel.app";
+
+// Stale-while-revalidate: show cached data immediately, refresh silently in bg
+const BOOTSTRAP_CACHE_KEY = "urbanease_bootstrap_v1";
+const BOOTSTRAP_CACHE_TTL = 5 * 60 * 1000; // 5 min (matches half the server TTL)
+
+// ─────────────────────────────────────────────
+//  BOOTSTRAP CACHE  (localStorage as L1 cache)
+//  Server cache is L2; DB is L3.
+// ─────────────────────────────────────────────
+function readBootstrapCache() {
+  try {
+    const raw = localStorage.getItem(BOOTSTRAP_CACHE_KEY);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    const age = Date.now() - ts;
+    return { data, stale: age > BOOTSTRAP_CACHE_TTL };
+  } catch {
+    return null;
+  }
+}
+
+function writeBootstrapCache(data) {
+  try {
+    localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+// ─────────────────────────────────────────────
+//  CART HELPERS
+// ─────────────────────────────────────────────
 const CART_KEY = "urbanease_cart";
 
 function loadCart() {
   try {
-    const raw = localStorage.getItem(CART_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return JSON.parse(localStorage.getItem(CART_KEY) || "{}");
   } catch {
     return {};
   }
 }
+
 function getUser() {
   return getAuth().currentUser;
 }
-function saveCart(cart) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-}
+
 async function handleCartUpdate(cart) {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+
   const user = getUser();
+  if (!user) return;
 
-  // ❌ NOT LOGGED IN → localStorage only
-  if (!user) {
-    localStorage.setItem("urbanease_cart", JSON.stringify(cart));
-    return;
-  }
-
-  // ✅ LOGGED IN → send to backend
   const token = await user.getIdToken();
-
-  await fetch(`${BASE}/api/cart`, {
+  // fire-and-forget; don't await — keeps UI snappy
+  fetch(`${BASE}/api/cart`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      items: Object.entries(cart).map(([id, v]) => ({
-        id,
-        qty: v.qty,
-        price: v.price,
-      })),
+      items: Object.entries(cart).map(([id, v]) => ({ id, qty: v.qty, price: v.price })),
     }),
-  });
-
-  // optional: also keep local copy
-  localStorage.setItem("urbanease_cart", JSON.stringify(cart));
+  }).catch(console.error);
 }
 
-// ── Skeleton primitives ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  SKELETON PRIMITIVES
+// ─────────────────────────────────────────────
 function SkeletonBox({ width = "100%", height = "16px", radius = "6px", style = {} }) {
   return (
     <div
@@ -61,7 +81,6 @@ function SkeletonBox({ width = "100%", height = "16px", radius = "6px", style = 
   );
 }
 
-// Skeleton for left nav tabs
 function SkeletonTabs() {
   return (
     <div className="wss-tabs-box">
@@ -80,7 +99,6 @@ function SkeletonTabs() {
   );
 }
 
-// Skeleton for a single package card
 function SkeletonPackageCard() {
   return (
     <div className="package-card skeleton-card">
@@ -103,7 +121,6 @@ function SkeletonPackageCard() {
   );
 }
 
-// Skeleton for a single service card
 function SkeletonServiceCard() {
   return (
     <div className="svc-card skeleton-card">
@@ -127,11 +144,13 @@ function SkeletonServiceCard() {
   );
 }
 
-// ── QuantityBtn ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  QUANTITY BUTTON
+// ─────────────────────────────────────────────
 function QuantityBtn({ id, price, cart, setCart }) {
   const qty = cart[id]?.qty ?? 0;
 
-  function update(delta) {
+  const update = useCallback((delta) => {
     setCart((prev) => {
       const next = { ...prev };
       const newQty = (next[id]?.qty ?? 0) + delta;
@@ -140,12 +159,11 @@ function QuantityBtn({ id, price, cart, setCart }) {
       handleCartUpdate(next);
       return next;
     });
-  }
+  }, [id, price]);
 
   if (qty === 0) {
     return <button className="add-btn" onClick={() => update(1)}>Add</button>;
   }
-
   return (
     <div className="qty-stepper">
       <button className="qty-btn" onClick={() => update(-1)}>−</button>
@@ -155,18 +173,19 @@ function QuantityBtn({ id, price, cart, setCart }) {
   );
 }
 
-// ── ServiceCard ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  SERVICE CARD
+// ─────────────────────────────────────────────
 function ServiceCard({ service, cart, setCart }) {
   return (
     <div className="svc-card">
       <div className="svc-banner">
         {service.badge && <span className="svc-badge">{service.badge}</span>}
-        <img src={service.bannerImg} alt={service.title} className="svc-banner-img" />
+        <img src={service.bannerImg} alt={service.title} className="svc-banner-img" loading="lazy" />
         <div className="svc-banner-overlay">
           <h3 className="svc-banner-heading">{service.bannerHeading}</h3>
         </div>
       </div>
-
       <div className="svc-details-row">
         <div className="svc-info">
           <p className="svc-name">{service.title}</p>
@@ -186,92 +205,107 @@ function ServiceCard({ service, cart, setCart }) {
           {service.options && <span className="svc-options">{service.options} options</span>}
         </div>
       </div>
-
       {service.bullets && (
         <ul className="svc-bullets">
           {service.bullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
       )}
-
       <button className="svc-view-details">View details</button>
     </div>
   );
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
-const BASE = "https://urban-ease-theta.vercel.app";
-
+// ─────────────────────────────────────────────
+//  MAIN COMPONENT
+// ─────────────────────────────────────────────
 export default function WomenSalonandSpa() {
-  const videoRef = useRef(null);
-  const fillRef = useRef(null);
+  const videoRef    = useRef(null);
+  const fillRef     = useRef(null);
   const rightPaneRef = useRef(null);
 
-  const [cart, setCart] = useState(loadCart);
-  const [activeTab, setActiveTab] = useState(null);
-
-  // ── data from DB ──────────────────────────────────────────────────────────
-  const [WomenService, setWomenService] = useState([]);
-  const [packages, setPackages] = useState([]);
-  const [waxingServices, setWaxingServices] = useState([]);
-  const [koreanfacial, setKoreanfacial] = useState([]);
-  const [signaturefacial, setSignaturefacial] = useState([]);
-  const [pedicuremanicure, setPedicuremanicure] = useState([]);
-  const [discounts, setDiscounts] = useState([]);
-
-  // ── loading states ────────────────────────────────────────────────────────
-  const [loadingTabs, setLoadingTabs] = useState(true);
-  const [loadingPackages, setLoadingPackages] = useState(true);
-  const [loadingWaxing, setLoadingWaxing] = useState(true);
-  const [loadingKorean, setLoadingKorean] = useState(true);
-  const [loadingSignature, setLoadingSignature] = useState(true);
-  const [loadingPedicure, setLoadingPedicure] = useState(true);
+  const [cart, setCart]                   = useState(loadCart);
+  const [activeTab, setActiveTab]         = useState(null);
   const [offersExpanded, setOffersExpanded] = useState(false);
 
-  // ── tab → section id map (built once WomenService loads) ─────────────────
+  // ── all catalogue data from single bootstrap call ─────────────────────────
+  const [catalogue, setCatalogue] = useState(null);  // null = loading
   const [tabSectionMap, setTabSectionMap] = useState({});
 
-  const total = Object.values(cart).reduce((sum, { qty, price }) => sum + qty * price, 0);
-  const itemCount = Object.values(cart).reduce((sum, { qty }) => sum + qty, 0);
+  // ── derived slices (zero extra fetches) ──────────────────────────────────
+  const WomenService   = catalogue?.salon_prime        ?? [];
+  const packages       = catalogue?.packages           ?? [];
+  const waxingServices = catalogue?.services?.waxing   ?? [];
+  const koreanfacial   = catalogue?.services?.korean_facial   ?? [];
+  const signaturefacial = catalogue?.services?.signature_facial ?? [];
+  const pedicuremanicure = catalogue?.services?.pedicure_manicure ?? [];
+  const discounts      = catalogue?.discounts          ?? [];
+
+  const loading = catalogue === null;
+
+  // ── stale-while-revalidate bootstrap ─────────────────────────────────────
+  useEffect(() => {
+    const cached = readBootstrapCache();
+
+    // Show stale data immediately so the page renders right away
+    if (cached) {
+      setCatalogue(cached.data);
+      if (!cached.stale) return;   // fresh → no need to re-fetch
+    }
+
+    // Fetch fresh data (first load or stale cache)
+    fetch(`${BASE}/api/bootstrap`)
+      .then((r) => r.json())
+      .then(({ data }) => {
+        setCatalogue(data);
+        writeBootstrapCache(data);
+      })
+      .catch(console.error);
+  }, []);
+
+  // ── cart: hydrate from backend if logged in ───────────────────────────────
   useEffect(() => {
     async function loadCartData() {
       const user = getUser();
-
       if (!user) {
-        const local = JSON.parse(localStorage.getItem("urbanease_cart") || "{}");
-        setCart(local);
+        setCart(loadCart());
         return;
       }
-
       const token = await user.getIdToken();
-
-      const res = await fetch(`${BASE}/api/cart`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (data.cart) {
-        setCart(data.cart);
-        localStorage.setItem("urbanease_cart", JSON.stringify(data.cart));
-      }
+      fetch(`${BASE}/api/cart`, { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json())
+        .then(({ cart: serverCart }) => {
+          if (serverCart) {
+            setCart(serverCart);
+            localStorage.setItem(CART_KEY, JSON.stringify(serverCart));
+          }
+        })
+        .catch(console.error);
     }
-
     loadCartData();
   }, []);
+
+  // ── build tab → section map ───────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${BASE}/api/discounts`)
-      .then((r) => r.json())
-      .then((data) => setDiscounts(data.data || []))
-      .catch(console.error);
-  }, []);
+    if (!WomenService.length) return;
+
+    const sectionIds = [
+      "sec-packages", "sec-waxing", "sec-korean", "sec-signature", "sec-pedicure",
+    ];
+    const map = {};
+    WomenService.forEach((tab, i) => {
+      if (sectionIds[i]) map[tab.id] = sectionIds[i];
+    });
+    setTabSectionMap(map);
+
+    if (!activeTab) setActiveTab(WomenService[0]?.id ?? null);
+  }, [WomenService]);
+
   // ── HLS video ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const src = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
     const video = videoRef.current;
     if (!video) return;
-    const tryPlay = () => video.play().catch(() => { });
+    const tryPlay = () => video.play().catch(() => {});
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
       video.addEventListener("loadedmetadata", tryPlay, { once: true });
@@ -286,7 +320,7 @@ export default function WomenSalonandSpa() {
 
   useEffect(() => {
     const video = videoRef.current;
-    const fill = fillRef.current;
+    const fill  = fillRef.current;
     if (!video || !fill) return;
     const updateProgress = () => {
       if (!video.duration) return;
@@ -296,73 +330,20 @@ export default function WomenSalonandSpa() {
     return () => video.removeEventListener("timeupdate", updateProgress);
   }, []);
 
-  // ── fetch all DB data ──────────────────────────────────────────────────────
-  useEffect(() => {
-    // salon-prime tabs
-    fetch(`${BASE}/api/salon-prime`)
-      .then((r) => r.json())
-      .then((data) => {
-        const tabs = data.data || [];
-        setWomenService(tabs);
-        if (tabs.length > 0) setActiveTab(tabs[0].id);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingTabs(false));
-
-    // packages
-    fetch(`${BASE}/api/packages`)
-      .then((r) => r.json())
-      .then((data) => setPackages(data.data || []))
-      .catch(console.error)
-      .finally(() => setLoadingPackages(false));
-
-    // services by category
-    const categories = [
-      ["waxing", setWaxingServices, setLoadingWaxing],
-      ["korean_facial", setKoreanfacial, setLoadingKorean],
-      ["signature_facial", setSignaturefacial, setLoadingSignature],
-      ["pedicure_manicure", setPedicuremanicure, setLoadingPedicure],
-    ];
-
-    categories.forEach(([cat, setter, setLoading]) => {
-      fetch(`${BASE}/api/services/${cat}`)
-        .then((r) => r.json())
-        .then((data) => setter(data.data || []))
-        .catch(console.error)
-        .finally(() => setLoading(false));
-    });
-  }, []);
-
-  // ── build tab → section map once WomenService is populated ───────────────
-  useEffect(() => {
-    if (WomenService.length === 0) return;
-    const sectionIds = [
-      "sec-packages",
-      "sec-waxing",
-      "sec-korean",
-      "sec-signature",
-      "sec-pedicure",
-    ];
-    const map = {};
-    WomenService.forEach((tab, i) => {
-      if (sectionIds[i]) map[tab.id] = sectionIds[i];
-    });
-    setTabSectionMap(map);
-  }, [WomenService]);
-
-  // ── handle tab click: set active + scroll right pane to section ───────────
+  // ── tab click handler ─────────────────────────────────────────────────────
   function handleTabClick(tab) {
     setActiveTab(tab.id);
     const sectionId = tabSectionMap[tab.id];
     if (!sectionId) return;
     const sectionEl = document.getElementById(sectionId);
-    const paneEl = rightPaneRef.current;
+    const paneEl    = rightPaneRef.current;
     if (!sectionEl || !paneEl) return;
-    const paneTop = paneEl.getBoundingClientRect().top;
-    const sectionTop = sectionEl.getBoundingClientRect().top;
-    const offset = sectionTop - paneTop + paneEl.scrollTop - 16;
+    const offset = sectionEl.getBoundingClientRect().top - paneEl.getBoundingClientRect().top + paneEl.scrollTop - 16;
     paneEl.scrollTo({ top: offset, behavior: "smooth" });
   }
+
+  const total     = Object.values(cart).reduce((s, { qty, price }) => s + qty * price, 0);
+  const itemCount = Object.values(cart).reduce((s, { qty }) => s + qty, 0);
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -375,7 +356,7 @@ export default function WomenSalonandSpa() {
           <h2 className="wss-title">Salon Prime</h2>
           <p className="wss-rating">⭐ 4.85 (17.3 M bookings)</p>
 
-          {loadingTabs ? (
+          {loading ? (
             <SkeletonTabs />
           ) : (
             <div className="wss-tabs-box">
@@ -388,7 +369,7 @@ export default function WomenSalonandSpa() {
                     onClick={() => handleTabClick(tab)}
                   >
                     <div className="wss-tab-thumb">
-                      <img src={tab.image} alt={tab.title} />
+                      <img src={tab.image} alt={tab.title} loading="lazy" />
                     </div>
                     <span className="wss-tab-label">{tab.title}</span>
                   </li>
@@ -410,7 +391,6 @@ export default function WomenSalonandSpa() {
               </div>
             </div>
 
-            {/* ── MAIN LAYOUT ── */}
             <div className="main-layout">
               <div className="main-content-col">
 
@@ -418,11 +398,8 @@ export default function WomenSalonandSpa() {
                 <div className="package-section" id="sec-packages">
                   <div className="package-heading">Super saver packages</div>
                   <div className="package-cards-col">
-                    {loadingPackages ? (
-                      <>
-                        <SkeletonPackageCard />
-                        <SkeletonPackageCard />
-                      </>
+                    {loading ? (
+                      <><SkeletonPackageCard /><SkeletonPackageCard /></>
                     ) : (
                       packages.map((pkg) => (
                         <div key={pkg.id} className="package-card">
@@ -467,12 +444,8 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-waxing">
                   <div className="svc-section-heading">Waxing &amp; threading</div>
                   <div className="package-cards-col">
-                    {loadingWaxing ? (
-                      <>
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                      </>
+                    {loading ? (
+                      <><SkeletonServiceCard /><SkeletonServiceCard /><SkeletonServiceCard /></>
                     ) : (
                       waxingServices.map((svc) => (
                         <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
@@ -485,11 +458,8 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-korean">
                   <div className="svc-section-heading">Korean facial</div>
                   <div className="package-cards-col">
-                    {loadingKorean ? (
-                      <>
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                      </>
+                    {loading ? (
+                      <><SkeletonServiceCard /><SkeletonServiceCard /></>
                     ) : (
                       koreanfacial.map((svc) => (
                         <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
@@ -502,11 +472,8 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-signature">
                   <div className="svc-section-heading">Signature facial</div>
                   <div className="package-cards-col">
-                    {loadingSignature ? (
-                      <>
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                      </>
+                    {loading ? (
+                      <><SkeletonServiceCard /><SkeletonServiceCard /></>
                     ) : (
                       signaturefacial.map((svc) => (
                         <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
@@ -519,12 +486,8 @@ export default function WomenSalonandSpa() {
                 <div className="svc-section" id="sec-pedicure">
                   <div className="svc-section-heading">Pedicure &amp; manicure</div>
                   <div className="package-cards-col">
-                    {loadingPedicure ? (
-                      <>
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                        <SkeletonServiceCard />
-                      </>
+                    {loading ? (
+                      <><SkeletonServiceCard /><SkeletonServiceCard /><SkeletonServiceCard /></>
                     ) : (
                       pedicuremanicure.map((svc) => (
                         <ServiceCard key={svc.id + svc.category} service={svc} cart={cart} setCart={setCart} />
@@ -535,16 +498,13 @@ export default function WomenSalonandSpa() {
 
               </div>
 
-              {/* SINGLE STICKY SIDEBAR */}
+              {/* SIDEBAR */}
               <div className="main-sidebar">
                 <div className="sidebar-offers-box">
                   {discounts
                     .slice(0, offersExpanded ? discounts.length : 1)
                     .map((d, i) => (
-                      <div
-                        key={d.id}
-                        className={`sidebar-promo${i > 0 ? " sidebar-promo--extra" : ""}`}
-                      >
+                      <div key={d.id} className={`sidebar-promo${i > 0 ? " sidebar-promo--extra" : ""}`}>
                         <div className="promo-icon">%</div>
                         <div className="promo-text">
                           <p>{d.title}</p>
@@ -552,16 +512,13 @@ export default function WomenSalonandSpa() {
                         </div>
                       </div>
                     ))}
-
                   {discounts.length > 1 && (
-                    <button
-                      className="offers-toggle-btn"
-                      onClick={() => setOffersExpanded((v) => !v)}
-                    >
+                    <button className="offers-toggle-btn" onClick={() => setOffersExpanded((v) => !v)}>
                       {offersExpanded ? "View Less Offers ▲" : "View More Offers ▼"}
                     </button>
                   )}
                 </div>
+
                 {itemCount === 0 ? (
                   <div className="cart-empty">
                     <img src="https://cdn-icons-png.flaticon.com/512/11329/11329961.png" alt="cart" />
