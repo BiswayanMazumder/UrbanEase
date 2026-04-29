@@ -587,7 +587,7 @@ def get_all_bathroom_cleaning_services():
     """
     rows = query("""
         SELECT id, category, title, price, old_price, rating, reviews,
-               duration, per_unit, options, starts_at, bullets
+               duration, per_unit, options, starts_at, bullets,image
         FROM bathroom_cleaning_services
         ORDER BY category, sort_order
     """)
