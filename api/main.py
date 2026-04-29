@@ -656,62 +656,6 @@ def get_discounts():
     return {"status": "success", "data": [
         {"id": r[0], "code": r[1], "title": r[2], "description": r[3]} for r in rows
     ]}
-@app.get("/api/bathroom-cleaning")
-def get_bathroom_cleaning():
-    CACHE_KEY = "bathroom_cleaning_v1"
 
-    cached_data = cache_get(CACHE_KEY)
-    if cached_data is not None:
-        return cached_data
-
-    rows = query("""
-        SELECT id, category, title, price, old_price, rating, reviews,
-               options, badge, banner_img, banner_heading, banner_sub, bullets
-        FROM services
-        WHERE category = %s
-        ORDER BY id
-    """, ("bathroom_cleaning",))
-
-    result = {
-        "packages": [],
-        "value_deals": [],
-        "one_time_clean": [],
-        "mini_services": []
-    }
-
-    for r in rows:
-        item = {
-            "id": r[0],
-            "title": r[2],
-            "price": r[3],
-            "oldPrice": r[4],
-            "rating": r[5],
-            "reviews": r[6],
-            "options": r[7],
-            "badge": r[8],
-            "bannerImg": r[9],
-            "bannerHeading": r[10],
-            "bannerSub": r[11],
-            "bullets": r[12],
-        }
-
-        title = (r[2] or "").lower()
-
-        if "visit" in title:
-            result["packages"].append(item)
-        elif "intense" in title:
-            result["value_deals"].append(item)
-        elif "bathroom cleaning" in title:
-            result["one_time_clean"].append(item)
-        else:
-            result["mini_services"].append(item)
-
-    response = {
-        "status": "success",
-        "data": result
-    }
-
-    cache_set(CACHE_KEY, response, ttl=600)  # 10 min cache
-    return response
 # Vercel / AWS Lambda handler
 handler = Mangum(app)
