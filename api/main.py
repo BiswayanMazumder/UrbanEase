@@ -658,85 +658,60 @@ def get_discounts():
     ]}
 @app.get("/api/bathroom-cleaning")
 def get_bathroom_cleaning():
-    """
-    Fetch all bathroom cleaning data (services + packages)
-    from Neon DB.
-    """
+    CACHE_KEY = "bathroom_cleaning_v1"
 
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
+    cached_data = cache_get(CACHE_KEY)
+    if cached_data is not None:
+        return cached_data
 
-        # ────────────────
-        # SERVICES (bc-*)
-        # ────────────────
-        cur.execute("""
-            SELECT id, category, title, price, old_price, rating, reviews,
-                   options, badge, banner_img, banner_heading, banner_sub, bullets
-            FROM services
-            WHERE id LIKE 'bc-%'
-            ORDER BY category;
-        """)
+    rows = query("""
+        SELECT id, category, title, price, old_price, rating, reviews,
+               options, badge, banner_img, banner_heading, banner_sub, bullets
+        FROM services
+        WHERE category = %s
+        ORDER BY id
+    """, ("bathroom_cleaning",))
 
-        services_by_category = {}
-
-        for r in cur.fetchall():
-            cat = r[1]
-
-            services_by_category.setdefault(cat, []).append({
-                "id": r[0],
-                "category": r[1],
-                "title": r[2],
-                "price": r[3],
-                "oldPrice": r[4],
-                "rating": float(r[5]) if r[5] else None,
-                "reviews": r[6],
-                "options": r[7],
-                "badge": r[8],
-                "bannerImg": r[9],
-                "bannerHeading": r[10],
-                "bannerSub": r[11],
-                "bullets": r[12],
-            })
-
-        # ────────────────
-        # PACKAGES (bc-*)
-        # ────────────────
-        cur.execute("""
-            SELECT id, title, reviews, price, old_price, duration, discount, badge_class, includes
-            FROM packages
-            WHERE id LIKE 'bc-%';
-        """)
-
-        packages = [
-            {
-                "id": r[0],
-                "title": r[1],
-                "reviews": r[2],
-                "price": r[3],
-                "oldPrice": r[4],
-                "duration": r[5],
-                "discount": r[6],
-                "badgeClass": r[7],
-                "includes": r[8],
-            }
-            for r in cur.fetchall()
-        ]
-
-        cur.close()
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
-    finally:
-        release_conn(conn)
-
-    return {
-        "status": "success",
-        "data": {
-            "services": services_by_category,
-            "packages": packages
-        }
+    result = {
+        "packages": [],
+        "value_deals": [],
+        "one_time_clean": [],
+        "mini_services": []
     }
+
+    for r in rows:
+        item = {
+            "id": r[0],
+            "title": r[2],
+            "price": r[3],
+            "oldPrice": r[4],
+            "rating": r[5],
+            "reviews": r[6],
+            "options": r[7],
+            "badge": r[8],
+            "bannerImg": r[9],
+            "bannerHeading": r[10],
+            "bannerSub": r[11],
+            "bullets": r[12],
+        }
+
+        title = (r[2] or "").lower()
+
+        if "visit" in title:
+            result["packages"].append(item)
+        elif "intense" in title:
+            result["value_deals"].append(item)
+        elif "bathroom cleaning" in title:
+            result["one_time_clean"].append(item)
+        else:
+            result["mini_services"].append(item)
+
+    response = {
+        "status": "success",
+        "data": result
+    }
+
+    cache_set(CACHE_KEY, response, ttl=600)  # 10 min cache
+    return response
 # Vercel / AWS Lambda handler
 handler = Mangum(app)
