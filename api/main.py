@@ -349,7 +349,7 @@ def bootstrap():
                 "id": r[0], "category": r[1], "title": r[2], "price": r[3],
                 "oldPrice": r[4], "rating": r[5], "reviews": r[6],
                 "duration": r[7], "perUnit": r[8], "options": r[9],
-                "startsAt": r[10], "bullets": r[11],"image":r[13]
+                "startsAt": r[10], "bullets": r[11],"image":r[12]
             })
 
         cur.close()
@@ -562,6 +562,7 @@ def _bc_svc_row(r) -> dict:
         "options":  r[9],
         "startsAt": r[10],
         "bullets":  r[11],
+        "image":r[12],
     }
 
 
