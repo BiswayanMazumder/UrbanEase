@@ -381,6 +381,71 @@ def bootstrap():
     cache_set(CACHE_KEY, result, ttl=600)
     return result
 
+#Fetch cart details before checkout to ensure user has the latest data (e.g. discounts, price changes)
+@app.get("/api/cart/details")
+async def get_cart_details(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    # Step 1: get cart items
+    cart_rows = query(
+        "SELECT product_id, quantity, price FROM cart_items WHERE firebase_uid = %s",
+        (firebase_uid,)
+    )
+    if not cart_rows:
+        return {"status": "success", "items": [], "summary": {"total": 0, "count": 0}}
+
+    product_ids = [r[0] for r in cart_rows]
+    cart_map = {r[0]: {"qty": r[1], "price": float(r[2])} for r in cart_rows}
+
+    # Step 2: look up details from all product tables via UNION
+    placeholders = ",".join(["%s"] * len(product_ids))
+    detail_rows = query(f"""
+        SELECT id, title, image, 'service' AS source FROM services
+            WHERE id IN ({placeholders})
+        UNION ALL
+        SELECT id, title, banner_img AS image, 'men_service' AS source FROM men_services
+            WHERE id IN ({placeholders})
+        UNION ALL
+        SELECT id, title, image, 'most_booked' AS source FROM most_booked_services
+            WHERE id IN ({placeholders})
+        UNION ALL
+        SELECT id, title, image, 'package' AS source FROM packages
+            WHERE id IN ({placeholders})
+        UNION ALL
+        SELECT id, title, image, 'men_package' AS source FROM men_packages
+            WHERE id IN ({placeholders})
+        UNION ALL
+        SELECT id, title, image, 'bathroom' AS source FROM bathroom_cleaning_services
+            WHERE id IN ({placeholders})
+    """, product_ids * 6)  # repeated 6 times, once per subquery
+
+    # Step 3: merge cart quantities with product details
+    detail_map = {r[0]: {"title": r[1], "image": r[2], "source": r[3]} for r in detail_rows}
+
+    items = []
+    for pid, cart_data in cart_map.items():
+        detail = detail_map.get(pid, {})
+        items.append({
+            "id":       pid,
+            "title":    detail.get("title", "Unknown Item"),
+            "image":    detail.get("image"),
+            "source":   detail.get("source"),
+            "qty":      cart_data["qty"],
+            "price":    cart_data["price"],
+            "subtotal": cart_data["qty"] * cart_data["price"],
+        })
+    print(f"Cart details for user {firebase_uid}: {items}")
+    total = sum(i["subtotal"] for i in items)
+
+    return {
+        "status": "success",
+        "items": items,
+        "summary": {
+            "total": round(total, 2),
+            "count": sum(i["qty"] for i in items),
+        }
+    }
 
 # ─────────────────────────────────────────────
 #  CACHE INVALIDATION
