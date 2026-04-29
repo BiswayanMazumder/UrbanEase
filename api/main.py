@@ -387,7 +387,6 @@ async def get_cart_details(request: Request):
     payload = await verify_firebase_token(request)
     firebase_uid = payload["uid"]
 
-    # Step 1: get cart items
     cart_rows = query(
         "SELECT product_id, quantity, price FROM cart_items WHERE firebase_uid = %s",
         (firebase_uid,)
@@ -398,29 +397,24 @@ async def get_cart_details(request: Request):
     product_ids = [r[0] for r in cart_rows]
     cart_map = {r[0]: {"qty": r[1], "price": float(r[2])} for r in cart_rows}
 
-    # Step 2: look up details from all product tables via UNION
-    placeholders = ",".join(["%s"] * len(product_ids))
-    detail_rows = query(f"""
-        SELECT id, title, image, 'service' AS source FROM services
-            WHERE id IN ({placeholders})
-        UNION ALL
-        SELECT id, title, banner_img AS image, 'men_service' AS source FROM men_services
-            WHERE id IN ({placeholders})
-        UNION ALL
-        SELECT id, title, image, 'most_booked' AS source FROM most_booked_services
-            WHERE id IN ({placeholders})
-        UNION ALL
-        SELECT id, title, image, 'package' AS source FROM packages
-            WHERE id IN ({placeholders})
-        UNION ALL
-        SELECT id, title, image, 'men_package' AS source FROM men_packages
-            WHERE id IN ({placeholders})
-        UNION ALL
-        SELECT id, title, image, 'bathroom' AS source FROM bathroom_cleaning_services
-            WHERE id IN ({placeholders})
-    """, product_ids * 6)  # repeated 6 times, once per subquery
+    # ✅ FIX: build placeholders PER subquery, pass params tuple correctly
+    ph = ",".join(["%s"] * len(product_ids))
+    p  = product_ids  # shorthand
 
-    # Step 3: merge cart quantities with product details
+    detail_rows = query(f"""
+        SELECT id, title, image,        'service'      AS source FROM services                  WHERE id IN ({ph})
+        UNION ALL
+        SELECT id, title, banner_img,   'men_service'  AS source FROM men_services              WHERE id IN ({ph})
+        UNION ALL
+        SELECT id, title, image,        'most_booked'  AS source FROM most_booked_services      WHERE id IN ({ph})
+        UNION ALL
+        SELECT id, title, image,        'package'      AS source FROM packages                  WHERE id IN ({ph})
+        UNION ALL
+        SELECT id, title, image,        'men_package'  AS source FROM men_packages              WHERE id IN ({ph})
+        UNION ALL
+        SELECT id, title, image,        'bathroom'     AS source FROM bathroom_cleaning_services WHERE id IN ({ph})
+    """, (*p, *p, *p, *p, *p, *p))   # ✅ tuple unpacking, not list * 6
+
     detail_map = {r[0]: {"title": r[1], "image": r[2], "source": r[3]} for r in detail_rows}
 
     items = []
@@ -433,11 +427,10 @@ async def get_cart_details(request: Request):
             "source":   detail.get("source"),
             "qty":      cart_data["qty"],
             "price":    cart_data["price"],
-            "subtotal": cart_data["qty"] * cart_data["price"],
+            "subtotal": round(cart_data["qty"] * cart_data["price"], 2),
         })
-    print(f"Cart details for user {firebase_uid}: {items}")
-    total = sum(i["subtotal"] for i in items)
 
+    total = sum(i["subtotal"] for i in items)
     return {
         "status": "success",
         "items": items,
