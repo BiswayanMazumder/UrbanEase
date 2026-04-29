@@ -28,9 +28,7 @@ FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 
 
 # ─────────────────────────────────────────────
-#  CONNECTION POOL  (replaces per-request connect)
-#  Production: swap for asyncpg + SQLAlchemy async,
-#  or keep psycopg2 pool for a zero-dependency win.
+#  CONNECTION POOL
 # ─────────────────────────────────────────────
 _db_pool: Optional[psycopg2_pool.ThreadedConnectionPool] = None
 
@@ -39,13 +37,12 @@ def get_pool() -> psycopg2_pool.ThreadedConnectionPool:
     if _db_pool is None:
         _db_pool = psycopg2_pool.ThreadedConnectionPool(
             minconn=2,
-            maxconn=10,          # tune to your DB plan
+            maxconn=10,
             dsn=DATABASE_URL,
         )
     return _db_pool
 
 def get_conn():
-    """Borrow a connection from the pool; caller must call pool.putconn(conn)."""
     return get_pool().getconn()
 
 def release_conn(conn):
@@ -54,15 +51,8 @@ def release_conn(conn):
 
 # ─────────────────────────────────────────────
 #  IN-PROCESS TTL CACHE
-#  Drop-in compatible; swap backing store to Redis
-#  by replacing _cache_store with redis-py calls.
-#
-#  TTL guide (tweak to your update cadence):
-#    static catalogue  →  10 min (600 s)
-#    offers/discounts  →   2 min (120 s)  ← change more often
-#    user sessions     →  no cache (always fresh)
 # ─────────────────────────────────────────────
-_cache_store: dict[str, tuple[Any, float]] = {}  # key → (value, expires_at)
+_cache_store: dict[str, tuple[Any, float]] = {}
 
 def cache_get(key: str) -> Optional[Any]:
     entry = _cache_store.get(key)
@@ -78,18 +68,11 @@ def cache_set(key: str, value: Any, ttl: int):
     _cache_store[key] = (value, time.monotonic() + ttl)
 
 def cache_delete_prefix(prefix: str):
-    """Useful for targeted invalidation, e.g. after an admin update."""
     for key in list(_cache_store.keys()):
         if key.startswith(prefix):
             del _cache_store[key]
 
 def cached(key_fn, ttl: int = 600):
-    """
-    Decorator for sync route handlers.
-    Usage:
-        @cached(lambda: "most_booked", ttl=600)
-        def get_most_booked(): ...
-    """
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -207,7 +190,7 @@ def delete_sessions(firebase_uid: str):
 
 
 # ─────────────────────────────────────────────
-#  DB query helper  (borrows + auto-returns conn)
+#  DB query helpers
 # ─────────────────────────────────────────────
 def query(sql: str, params=()) -> list[tuple]:
     conn = get_conn()
@@ -233,23 +216,14 @@ def execute(sql: str, params=()):
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  BULK BOOTSTRAP ENDPOINT
-#  Frontend calls ONE request instead of 8+ parallel fetches.
-#  All catalogue data is returned in a single JSON payload,
-#  served from cache after the first DB hit.
 # ─────────────────────────────────────────────────────────────────────────────
 @app.get("/api/bootstrap")
 def bootstrap():
-    """
-    Returns all public catalogue data in one round-trip.
-    Cached for 10 minutes. Typical cold response ~50-80 ms;
-    warm cache hit ~1-2 ms.
-    """
     CACHE_KEY = "bootstrap_v1"
     cached_data = cache_get(CACHE_KEY)
     if cached_data is not None:
         return cached_data
 
-    # ── run all catalogue queries with one borrowed connection ────────────────
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -315,7 +289,6 @@ def bootstrap():
             for r in cur.fetchall()
         ]
 
-        # services — all categories in one query, grouped in Python
         cur.execute("""
             SELECT id, category, title, price, old_price, rating, reviews,
                    options, badge, banner_img, banner_heading, banner_sub, bullets
@@ -359,6 +332,26 @@ def bootstrap():
             for r in cur.fetchall()
         ]
 
+        # ── bathroom cleaning (included in bootstrap for completeness) ────────
+        cur.execute("SELECT id, title, image FROM bathroom_cleaning_tabs ORDER BY sort_order")
+        bc_tabs = [{"id": r[0], "title": r[1], "image": r[2]} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT id, category, title, price, old_price, rating, reviews,
+                   duration, per_unit, options, starts_at, bullets
+            FROM bathroom_cleaning_services
+            ORDER BY category, sort_order
+        """)
+        bc_by_cat: dict[str, list] = {}
+        for r in cur.fetchall():
+            cat = r[1]
+            bc_by_cat.setdefault(cat, []).append({
+                "id": r[0], "category": r[1], "title": r[2], "price": r[3],
+                "oldPrice": r[4], "rating": r[5], "reviews": r[6],
+                "duration": r[7], "perUnit": r[8], "options": r[9],
+                "startsAt": r[10], "bullets": r[11],
+            })
+
         cur.close()
     finally:
         release_conn(conn)
@@ -366,49 +359,43 @@ def bootstrap():
     result = {
         "status": "success",
         "data": {
-            "most_booked":        most_booked,
-            "new_and_noteworthy": new_noteworthy,
-            "offers":             offers,
-            "salon_women":        salon_women,
-            "spa_women":          spa_women,
-            "cleaning":           cleaning,
-            "appliances":         appliances,
-            "salon_prime":        salon_prime,
-            "men_salon_prime":    men_salon_prime,
-            "packages":           packages,
-            "men_packages":       men_packages,
-            "services":           services_by_cat,
-            "men_services":       men_services_by_cat,
-            "discounts":          discounts,
+            "most_booked":          most_booked,
+            "new_and_noteworthy":   new_noteworthy,
+            "offers":               offers,
+            "salon_women":          salon_women,
+            "spa_women":            spa_women,
+            "cleaning":             cleaning,
+            "appliances":           appliances,
+            "salon_prime":          salon_prime,
+            "men_salon_prime":      men_salon_prime,
+            "packages":             packages,
+            "men_packages":         men_packages,
+            "services":             services_by_cat,
+            "men_services":         men_services_by_cat,
+            "discounts":            discounts,
+            "bathroom_cleaning_tabs":     bc_tabs,
+            "bathroom_cleaning_services": bc_by_cat,
         }
     }
 
-    cache_set(CACHE_KEY, result, ttl=600)   # 10-minute TTL
+    cache_set(CACHE_KEY, result, ttl=600)
     return result
 
 
 # ─────────────────────────────────────────────
-#  CACHE INVALIDATION ENDPOINT
-#  Call this from your admin panel / CMS webhook
-#  whenever catalogue data changes.
+#  CACHE INVALIDATION
 # ─────────────────────────────────────────────
 @app.post("/api/admin/cache/invalidate")
 async def invalidate_cache(request: Request):
-    """
-    Clears all catalogue cache keys.
-    Protect this with an internal secret in production:
-        secret = request.headers.get("X-Admin-Secret")
-        if secret != os.getenv("ADMIN_SECRET"): raise HTTPException(403)
-    """
     cache_delete_prefix("bootstrap")
     cache_delete_prefix("services:")
     cache_delete_prefix("discounts")
+    cache_delete_prefix("bathroom_cleaning")
     return {"status": "cache cleared"}
 
 
 # ─────────────────────────────────────────────
-#  PUBLIC DATA ROUTES  (kept for backward compat)
-#  These now serve from cache — no extra DB hit.
+#  PUBLIC CATALOGUE ROUTES (backward compat)
 # ─────────────────────────────────────────────
 
 @app.get("/api/most-booked")
@@ -556,6 +543,79 @@ def get_men_services_by_category(category: str):
     ]}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  BATHROOM CLEANING ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _bc_svc_row(r) -> dict:
+    """Convert a bathroom_cleaning_services DB row to a dict."""
+    return {
+        "id":       r[0],
+        "category": r[1],
+        "title":    r[2],
+        "price":    r[3],
+        "oldPrice": r[4],
+        "rating":   r[5],
+        "reviews":  r[6],
+        "duration": r[7],
+        "perUnit":  r[8],
+        "options":  r[9],
+        "startsAt": r[10],
+        "bullets":  r[11],
+    }
+
+
+@app.get("/api/bathroom-cleaning/tabs")
+@cached(lambda: "bathroom_cleaning_tabs", ttl=600)
+def get_bathroom_cleaning_tabs():
+    """Returns the left-nav category tabs for the bathroom cleaning page."""
+    rows = query(
+        "SELECT id, title, image FROM bathroom_cleaning_tabs ORDER BY sort_order"
+    )
+    return {
+        "status": "success",
+        "data": [{"id": r[0], "title": r[1], "image": r[2]} for r in rows],
+    }
+
+
+@app.get("/api/bathroom-cleaning/services")
+@cached(lambda: "bathroom_cleaning_services_all", ttl=600)
+def get_all_bathroom_cleaning_services():
+    """
+    Returns ALL bathroom cleaning services grouped by category.
+    Shape: { three_visit_packs: [...], value_deals: [...], ... }
+    """
+    rows = query("""
+        SELECT id, category, title, price, old_price, rating, reviews,
+               duration, per_unit, options, starts_at, bullets
+        FROM bathroom_cleaning_services
+        ORDER BY category, sort_order
+    """)
+    by_cat: dict[str, list] = {}
+    for r in rows:
+        by_cat.setdefault(r[1], []).append(_bc_svc_row(r))
+    return {"status": "success", "data": by_cat}
+
+
+@app.get("/api/bathroom-cleaning/services/{category}")
+@cached(lambda category: f"bathroom_cleaning_services:{category}", ttl=600)
+def get_bathroom_cleaning_services_by_category(category: str):
+    """
+    Returns services for a single category.
+    Valid values: three_visit_packs | value_deals | one_time_deep_clean | mini_services
+    """
+    rows = query("""
+        SELECT id, category, title, price, old_price, rating, reviews,
+               duration, per_unit, options, starts_at, bullets
+        FROM bathroom_cleaning_services
+        WHERE category = %s
+        ORDER BY sort_order
+    """, (category,))
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No services found for category '{category}'")
+    return {"status": "success", "data": [_bc_svc_row(r) for r in rows]}
+
+
 # ─────────────────────────────────────────────
 #  PROTECTED ROUTES
 # ─────────────────────────────────────────────
@@ -645,7 +705,7 @@ async def get_cart(request: Request):
 
 
 @app.get("/api/discounts")
-@cached(lambda: "discounts", ttl=120)   # shorter TTL — changes more often
+@cached(lambda: "discounts", ttl=120)
 def get_discounts():
     rows = query("""
         SELECT id, code, title, description
@@ -656,6 +716,7 @@ def get_discounts():
     return {"status": "success", "data": [
         {"id": r[0], "code": r[1], "title": r[2], "description": r[3]} for r in rows
     ]}
+
 
 # Vercel / AWS Lambda handler
 handler = Mangum(app)
