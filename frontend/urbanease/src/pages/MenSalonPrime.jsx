@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import HomepageNavBar from "../components/Homepagenav.jsx";
 import Hls from "hls.js";
 import { getAuth } from "firebase/auth";
-
+import { useNavigate } from "react-router-dom";
 // ── helpers ──────────────────────────────────────────────────────────────────
 const CART_KEY = "urbanease_cart";
 const BASE = "https://urban-ease-theta.vercel.app";
@@ -210,7 +210,7 @@ export default function MenSalonAndSpa() {
   const videoRef    = useRef(null);
   const fillRef     = useRef(null);
   const rightPaneRef = useRef(null);
-
+  const navigate = useNavigate();
   const [cart, setCart]         = useState(loadCart);
   const [activeTab, setActiveTab] = useState(null);
 
@@ -504,7 +504,7 @@ export default function MenSalonAndSpa() {
                         <span className="cart-total">₹{total.toLocaleString()}</span>
                         <span className="cart-items">{itemCount} item{itemCount > 1 ? "s" : ""}</span>
                       </div>
-                      <button className="view-cart-btn">View Cart</button>
+                      <button className="view-cart-btn" onClick={()=>navigate("/checkout")}>View Cart</button>
                     </div>
                   </div>
                 )}

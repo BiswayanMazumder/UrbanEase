@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import HomepageNavBar from "../components/Homepagenav.jsx";
 import Hls from "hls.js";
 import { getAuth } from "firebase/auth";
-
+import { useNavigate } from "react-router-dom";
 // ─────────────────────────────────────────────
 //  CONFIG
 // ─────────────────────────────────────────────
@@ -222,7 +222,7 @@ export default function WomenSalonandSpa() {
   const videoRef    = useRef(null);
   const fillRef     = useRef(null);
   const rightPaneRef = useRef(null);
-
+  const navigate = useNavigate();
   const [cart, setCart]                   = useState(loadCart);
   const [activeTab, setActiveTab]         = useState(null);
   const [offersExpanded, setOffersExpanded] = useState(false);
@@ -283,7 +283,7 @@ export default function WomenSalonandSpa() {
     }
     loadCartData();
   }, []);
-
+  
   // ── build tab → section map ───────────────────────────────────────────────
   useEffect(() => {
     if (!WomenService.length) return;
@@ -299,7 +299,7 @@ export default function WomenSalonandSpa() {
 
     if (!activeTab) setActiveTab(WomenService[0]?.id ?? null);
   }, [WomenService]);
-
+  
   // ── HLS video ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const src = "https://content.urbancompany.com/videos/supply/customer-app-supply/1773127761044-5daeb8/1773127761044-5daeb8.m3u8";
@@ -531,7 +531,7 @@ export default function WomenSalonandSpa() {
                         <span className="cart-total">₹{total.toLocaleString()}</span>
                         <span className="cart-items">{itemCount} item{itemCount > 1 ? "s" : ""}</span>
                       </div>
-                      <button className="view-cart-btn">View Cart</button>
+                      <button className="view-cart-btn" onClick={()=>navigate("/checkout")}>View Cart</button>
                     </div>
                   </div>
                 )}
