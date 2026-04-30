@@ -6,7 +6,7 @@ import { getAuth } from "firebase/auth";
    CONFIG
 ═══════════════════════════════════════════════════════════ */
 const BASE         = "https://urban-ease-theta.vercel.app";
-const MAPS_API_KEY = "";
+const MAPS_API_KEY = "AIzaSyApzKC2nq9OCuaVQV2Jbm9cJoOHPy9kzvM";
 
 /* ═══════════════════════════════════════════════════════════
    GOOGLE MAPS LOADER
