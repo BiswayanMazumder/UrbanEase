@@ -5,8 +5,11 @@ import psycopg2
 from psycopg2 import pool as psycopg2_pool
 import os
 import httpx
+import hmac
+import hashlib
 import asyncio
 import time
+import razorpay
 from datetime import datetime
 from typing import Any, Optional
 from functools import wraps
@@ -27,8 +30,9 @@ app.add_middleware(
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
-
-
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 # ─────────────────────────────────────────────
 #  CONNECTION POOL
 # ─────────────────────────────────────────────
@@ -178,8 +182,67 @@ def upsert_session(firebase_uid: str, email: str, user_agent: str, ip: str):
         cur.close()
     finally:
         release_conn(conn)
+##RZP Payment
+@app.post("/api/payment/create-order")
+async def create_order(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
 
+    body = await request.json()
+    amount = int(body.get("amount"))  # in paise
 
+    order = client.order.create({
+        "amount": amount,
+        "currency": "INR",
+        "payment_capture": 1
+    })
+
+    return {
+        "status": "success",
+        "order": order
+    }
+@app.post("/api/payment/verify")
+async def verify_payment(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    body = await request.json()
+
+    order_id = body["razorpay_order_id"]
+    payment_id = body["razorpay_payment_id"]
+    signature = body["razorpay_signature"]
+    amount = body["amount"]
+
+    generated_signature = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{order_id}|{payment_id}".encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    if generated_signature != signature:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # ✅ Save to Neon DB
+    execute("""
+        INSERT INTO orders (
+            firebase_uid,
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            amount,
+            status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (
+        firebase_uid,
+        order_id,
+        payment_id,
+        signature,
+        amount,
+        "paid"
+    ))
+
+    return {"status": "payment verified & stored"}
 def delete_sessions(firebase_uid: str):
     conn = get_conn()
     try:
