@@ -95,7 +95,12 @@ function HighlightedTitle({ title, query }) {
     );
 }
 
-export default function HomepageNavBar({ onProfileClick }) {
+export default function HomepageNavBar({
+    onProfileClick,
+    user,
+    userProfile,
+    onLogout
+}) {
     const navigate = useNavigate();
 
     // ── Typewriter ──────────────────────────────────────────────────────────
@@ -103,7 +108,8 @@ export default function HomepageNavBar({ onProfileClick }) {
     const [text, setText] = useState("");
     const [wordIndex, setWordIndex] = useState(0);
     const [charIndex, setCharIndex] = useState(0);
-
+    const [showMenu, setShowMenu] = useState(false);
+    const profileRef = useRef(null);
     // ── Location ────────────────────────────────────────────────────────────
     const [city, setCity] = useState("Detecting...");
 
@@ -127,7 +133,7 @@ export default function HomepageNavBar({ onProfileClick }) {
                     setBootstrapLoaded(true);
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }, [bootstrapLoaded]);
 
     // ── Live search filter ───────────────────────────────────────────────────
@@ -176,7 +182,7 @@ export default function HomepageNavBar({ onProfileClick }) {
                         setCity("Bhubaneswar");
                     }
                 },
-                () => {}
+                () => { }
             );
         }
     }, []);
@@ -218,7 +224,16 @@ export default function HomepageNavBar({ onProfileClick }) {
         setSearchQuery(term);
         inputRef.current?.focus();
     };
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (profileRef.current && !profileRef.current.contains(e.target)) {
+                setShowMenu(false);
+            }
+        };
 
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
     const handleResultClick = (product) => {
         setSearchOpen(false);
         setSearchQuery("");
@@ -383,18 +398,42 @@ export default function HomepageNavBar({ onProfileClick }) {
                 </div>
 
                 {/* Login + Cart */}
-                <div className="loginandcart">
-                    <div className="cartsvg" onClick={()=>navigate('/checkout')}>
+                <div className="loginandcart" ref={profileRef}>
+                    <div className="cartsvg" onClick={user?() => navigate('/checkout'):() => {}}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" >
                             <path fillRule="evenodd" clipRule="evenodd" d="M3.327 2H1.75v2h1.389l3.339 11.687A2.5 2.5 0 008.88 17.5h8.988a2.5 2.5 0 002.403-1.813l2.475-8.662a1 1 0 00-.961-1.275H5.719l-.71-2.48A1.75 1.75 0 003.328 2zm5.074 13.137L6.29 7.75h14.17l-2.11 7.387a.5.5 0 01-.482.363H8.882a.5.5 0 01-.48-.363z" />
                             <path d="M8.5 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM18.25 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                         </svg>
                     </div>
-                    <div className="profilesvg" onClick={onProfileClick}>
+                    <div
+                        className="profilesvg"
+                        onClick={() => {
+                            if (!user) {
+                                onProfileClick(); // open login modal
+                            } else {
+                                setShowMenu(prev => !prev); // toggle dropdown
+                            }
+                        }}
+                    >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#0F0F0F" xmlns="http://www.w3.org/2000/svg">
                             <path fillRule="evenodd" clipRule="evenodd" d="M18.702 19.422A9.974 9.974 0 0022 12c0-5.523-4.477-10-10-10S2 6.477 2 12a9.975 9.975 0 003.326 7.447A9.963 9.963 0 0012 22a9.963 9.963 0 006.702-2.578zM12 4a8 8 0 00-6.183 13.076 7.752 7.752 0 012.933-2.362 4.75 4.75 0 116.5 0 7.755 7.755 0 012.933 2.362A8 8 0 0012 4zm4.718 14.461a5.753 5.753 0 00-9.436 0A7.964 7.964 0 0012 20a7.964 7.964 0 004.718-1.539zM12 14a2.75 2.75 0 100-5.5 2.75 2.75 0 000 5.5z" fill="#0F0F0F" />
                         </svg>
                     </div>
+                    {user && showMenu && (
+                        <div className="profile-dropdown">
+                            <div onClick={() => navigate("/help")}>Help Center</div>
+                            <div onClick={() => navigate("/bookings")}>My Bookings</div>
+
+                            <div
+                                onClick={() => {
+                                    onLogout();
+                                    setShowMenu(false);
+                                }}
+                            >
+                                Log out
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>
