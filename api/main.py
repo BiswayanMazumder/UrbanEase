@@ -599,18 +599,6 @@ def get_men_packages():
     ]}
 _DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"]
  
-SLOT_TIMES: dict[str, list[str]] = {
-    "Salon Prime":        ["09:00 AM", "10:30 AM", "12:00 PM", "02:30 PM", "04:00 PM", "07:00 PM"],
-    "Men's Salon Prime":  ["09:00 AM", "10:30 AM", "12:00 PM", "02:30 PM", "04:00 PM", "07:00 PM"],
-    "Bathroom Cleaning":  ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM"],
-    "Services":           ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
-    "Men's Services":     ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
-    "Cleaning Services":  ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM"],
-    "Large Appliances":   ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM"],
-    "Spa":                ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM"],
-    "Salon for Women":    ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
-    "Most Booked":        ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
-}
  
 # Maps group label → list of (table_name, has_duration_column)
 # Table names with spaces must be quoted when used in SQL (handled below).
@@ -698,35 +686,18 @@ def _fetch_cart_services(firebase_uid: str, group: str) -> tuple[list[dict], str
     )
     best_label = _duration_label(best_raw) if best_raw is not None else ""
     return items, best_label
- 
- 
+def fetch_slots_from_db(group: str) -> list[str]:
+    rows = query("""
+        SELECT slot_time
+        FROM service_slots
+        WHERE group_name = %s AND is_active = TRUE
+        ORDER BY sort_order ASC
+    """, (group,))
+    
+    return [r[0] for r in rows]
 @app.get("/api/slots")
 async def get_slots(group: str = "", request: Request = None):
-    """
-    Returns available time slots for a service group, plus the real service
-    names from the user's Neon DB cart (when a valid Firebase token is supplied).
- 
-    Query param:
-        group  – group label, e.g. "Salon Prime", "Bathroom Cleaning"
- 
-    Response shape:
-    {
-        "status":         "success",
-        "group":          "Salon Prime",
-        "duration_label": "40 mins",          # from DB; fallback "60 mins"
-        "dates":          [...],              # next 7 days
-        "slots":          ["09:00 AM", ...],  # selectable times
-        "services": [                         # items in user's cart for this group
-            {"title": "Haircut & massage", "duration": "40 mins"},
-            ...
-        ]
-    }
- 
-    Auth: optional Bearer token. Without it, `services` is [] and
-    `duration_label` is the static fallback.
-    """
- 
-    # ── Build the next-7-days date list ──────────────────────────────────
+
     today = date.today()
     dates = [
         {
@@ -737,30 +708,31 @@ async def get_slots(group: str = "", request: Request = None):
         }
         for i in range(7)
     ]
- 
-    times = SLOT_TIMES.get(group, _DEFAULT_SLOTS)
- 
-    # ── Try to personalise with real cart data ────────────────────────────
-    services: list[dict] = []
-    duration_label        = ""
- 
+
+    # ✅ NEW: fetch from DB
+    times = fetch_slots_from_db(group)
+    if not times:
+        times = _DEFAULT_SLOTS
+
+    services = []
+    duration_label = ""
+
     auth_header = request.headers.get("Authorization", "") if request else ""
     if auth_header.startswith("Bearer "):
         try:
-            payload      = await verify_firebase_token(request)
+            payload = await verify_firebase_token(request)
             firebase_uid = payload["uid"]
             services, duration_label = _fetch_cart_services(firebase_uid, group)
         except Exception as exc:
-            # Invalid / expired token or DB error — degrade gracefully
             print(f"[slots] personalisation skipped: {exc}")
- 
+
     return {
-        "status":         "success",
-        "group":          group,
+        "status": "success",
+        "group": group,
         "duration_label": duration_label or "60 mins",
-        "dates":          dates,
-        "slots":          times,
-        "services":       services,
+        "dates": dates,
+        "slots": times,
+        "services": services,
     }
 @app.get("/api/men/services/{category}")
 @cached(lambda category: f"men_services:{category}", ttl=600)
