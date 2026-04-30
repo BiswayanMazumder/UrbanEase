@@ -932,9 +932,14 @@ const ViewCartComponent = () => {
             quantities: quantities
           }),
         });
-        
+
+        // 🧹 CLEAR FRONTEND STATE
+        setCartItems([]);
+        setQuantities({});
+        setSlotSelections({});
+
         navigate("/");
-      },
+      }
     };
 
     const rzp = new window.Razorpay(options);

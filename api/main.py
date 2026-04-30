@@ -265,7 +265,11 @@ async def verify_payment(request: Request):
             json.dumps(cart),
             json.dumps(quantities)
         ))
-
+        # 🧹 CLEAR CART
+        execute("""
+            DELETE FROM cart_items
+            WHERE firebase_uid = %s
+        """, (firebase_uid,))
     except Exception as e:
         print("❌ DB insert failed:", str(e))
         raise HTTPException(status_code=500, detail="Failed to store order")
