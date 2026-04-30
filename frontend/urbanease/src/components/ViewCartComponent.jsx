@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
-// import "../styles/ViewCart.css";
 
 /* ═══════════════════════════════════════════════════════════
    CONFIG
@@ -26,7 +25,7 @@ function loadGoogleMaps() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   AUTH HELPER
+   AUTH HELPERS
 ═══════════════════════════════════════════════════════════ */
 async function authFetch(path, options = {}) {
   const user  = getAuth().currentUser;
@@ -34,8 +33,19 @@ async function authFetch(path, options = {}) {
   const token = await user.getIdToken();
   return fetch(`${BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
   });
+}
+
+/** Returns the current user's Firebase ID token, or null if not signed in. */
+async function getToken() {
+  const user = getAuth().currentUser;
+  if (!user) return null;
+  return user.getIdToken();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -73,6 +83,16 @@ const GROUP_LABELS = {
 };
 const BATHROOM_SOURCES = new Set(["bathroom_cleaning"]);
 
+const DAY_ABBR   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function fmtSlotLabel(dateStr, timeStr) {
+  const d   = new Date(dateStr + "T00:00:00");
+  const day = DAY_ABBR[d.getDay() === 0 ? 6 : d.getDay() - 1];
+  const mon = MONTH_ABBR[d.getMonth()];
+  return `${day}, ${mon} ${d.getDate()} at ${timeStr}`;
+}
+
 /* ═══════════════════════════════════════════════════════════
    ANIMATION CSS (injected once)
 ═══════════════════════════════════════════════════════════ */
@@ -80,10 +100,10 @@ if (!document.getElementById("uc-anim")) {
   const st = document.createElement("style");
   st.id = "uc-anim";
   st.textContent = `
-    @keyframes uc-fadeIn   { from{opacity:0}                                    to{opacity:1} }
-    @keyframes uc-fadeOut  { from{opacity:1}                                    to{opacity:0} }
+    @keyframes uc-fadeIn   { from{opacity:0}                                       to{opacity:1} }
+    @keyframes uc-fadeOut  { from{opacity:1}                                       to{opacity:0} }
     @keyframes uc-slideUp  { from{opacity:0;transform:translateY(32px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-    @keyframes uc-slideDown{ from{opacity:1;transform:translateY(0) scale(1)}   to{opacity:0;transform:translateY(32px) scale(.97)} }
+    @keyframes uc-slideDown{ from{opacity:1;transform:translateY(0) scale(1)}      to{opacity:0;transform:translateY(32px) scale(.97)} }
   `;
   document.head.appendChild(st);
 }
@@ -117,7 +137,10 @@ function AnimatedModal({ open, onClose, children, wide = false }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ animation: out ? "uc-slideDown .28s forwards" : "uc-slideUp .28s forwards", width: wide ? "min(900px,95vw)" : undefined }}
+        style={{
+          animation: out ? "uc-slideDown .28s forwards" : "uc-slideUp .28s forwards",
+          width: wide ? "min(900px,95vw)" : undefined,
+        }}
       >
         {children}
       </div>
@@ -133,15 +156,19 @@ const ClockIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="no
 const CardIcon  = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>;
 const ChevR     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6a4de8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
 const CloseIcon = ({c="#333"}) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-const DotsIcon  = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>;
 const SearchIcon= () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
 const HistIcon  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>;
 const LocIcon   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6a4de8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>;
+const TickIcon  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 
 const GoogleBadge = () => (
   <span style={{fontSize:11}}>
     <span style={{color:"#aaa"}}>powered by </span>
-    <b><span style={{color:"#4285F4"}}>G</span><span style={{color:"#EA4335"}}>o</span><span style={{color:"#FBBC05"}}>o</span><span style={{color:"#4285F4"}}>g</span><span style={{color:"#34A853"}}>l</span><span style={{color:"#EA4335"}}>e</span></b>
+    <b>
+      <span style={{color:"#4285F4"}}>G</span><span style={{color:"#EA4335"}}>o</span>
+      <span style={{color:"#FBBC05"}}>o</span><span style={{color:"#4285F4"}}>g</span>
+      <span style={{color:"#34A853"}}>l</span><span style={{color:"#EA4335"}}>e</span>
+    </b>
   </span>
 );
 
@@ -149,11 +176,11 @@ const GoogleBadge = () => (
    GOOGLE PLACES SEARCH MODAL
 ═══════════════════════════════════════════════════════════ */
 function SearchModal({ open, onClose, onSelect, recents = [] }) {
-  const [query, setQuery]         = useState("");
-  const [preds, setPreds]         = useState([]);
-  const [ready, setReady]         = useState(false);
-  const svcRef                    = useRef(null);
-  const debRef                    = useRef(null);
+  const [query, setQuery] = useState("");
+  const [preds, setPreds] = useState([]);
+  const [ready, setReady] = useState(false);
+  const svcRef = useRef(null);
+  const debRef = useRef(null);
 
   useEffect(() => {
     loadGoogleMaps().then(() => {
@@ -162,7 +189,6 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
     });
   }, []);
 
-  // Reset on open
   useEffect(() => { if (open) { setQuery(""); setPreds([]); } }, [open]);
 
   useEffect(() => {
@@ -180,11 +206,10 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
     return () => clearTimeout(debRef.current);
   }, [query, ready]);
 
-  const pick = (desc, lat, lng) => { onSelect({ address: desc, lat, lng }); };
+  const pick = (desc, lat, lng) => onSelect({ address: desc, lat, lng });
 
   const geocodePred = (p) => {
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ placeId: p.place_id }, (results, status) => {
+    new window.google.maps.Geocoder().geocode({ placeId: p.place_id }, (results, status) => {
       if (status === "OK" && results[0]) {
         const loc = results[0].geometry.location;
         pick(p.description, loc.lat(), loc.lng());
@@ -205,12 +230,9 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
   return (
     <AnimatedModal open={open} onClose={onClose}>
       <div style={{ background:"white", borderRadius:14, width:490, maxWidth:"93vw", overflow:"hidden", boxShadow:"0 24px 64px rgba(0,0,0,.35)", position:"relative" }}>
-        {/* Close */}
         <button onClick={onClose} style={{ position:"absolute", top:-46, right:0, width:36, height:36, borderRadius:"50%", border:"2px solid #fff", background:"rgba(0,0,0,.65)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
           <CloseIcon c="white" />
         </button>
-
-        {/* Search bar */}
         <div style={{ padding:"16px 16px 14px", borderBottom:"1px solid #eee" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, border:"1.5px solid #ddd", borderRadius:8, padding:"10px 12px" }}>
             <SearchIcon />
@@ -226,13 +248,9 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
             )}
           </div>
         </div>
-
-        {/* Use current location */}
         <div onClick={handleCurrentLocation} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 20px", cursor:"pointer", borderBottom:"1px solid #eee" }}>
           <LocIcon /><span style={{ fontSize:14, fontWeight:600, color:"#6a4de8" }}>Use current location</span>
         </div>
-
-        {/* Predictions */}
         {preds.length > 0 && (
           <div style={{ maxHeight:320, overflowY:"auto" }}>
             {preds.map((p) => (
@@ -250,8 +268,6 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
             ))}
           </div>
         )}
-
-        {/* Recents (when no query) */}
         {!query && recents.length > 0 && (
           <div>
             <p style={{ margin:"14px 20px 6px", fontSize:15, fontWeight:600, color:"#1a1a1a" }}>Recents</p>
@@ -270,7 +286,6 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
             ))}
           </div>
         )}
-
         <div style={{ textAlign:"center", padding:"12px 0 14px", borderTop:"1px solid #f2f2f2" }}><GoogleBadge /></div>
       </div>
     </AnimatedModal>
@@ -278,12 +293,12 @@ function SearchModal({ open, onClose, onSelect, recents = [] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MAP + CONFIRM MODAL  (Image 1)
+   MAP + CONFIRM MODAL
 ═══════════════════════════════════════════════════════════ */
 function MapModal({ open, onClose, initial, onSaved }) {
-  const mapRef   = useRef(null);
-  const gMapRef  = useRef(null);
-  const markerRef= useRef(null);
+  const mapRef    = useRef(null);
+  const gMapRef   = useRef(null);
+  const markerRef = useRef(null);
 
   const [displayAddr, setDisplayAddr] = useState("");
   const [shortAddr,   setShortAddr]   = useState("");
@@ -295,233 +310,85 @@ function MapModal({ open, onClose, initial, onSaved }) {
   const [saving,      setSaving]      = useState(false);
   const [showSearch,  setShowSearch]  = useState(false);
 
-  // Reverse geocode helper
   const reverseGeocode = useCallback((lat, lng) => {
     new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (res, st) => {
       if (st === "OK" && res[0]) {
-        const full = res[0].formatted_address;
-        // Get short area name (first component)
+        const full  = res[0].formatted_address;
         const short = res[0].address_components?.[0]?.long_name || full.split(",")[0];
-        setDisplayAddr(full);
-        setShortAddr(short);
+        setDisplayAddr(full); setShortAddr(short);
       }
     });
   }, []);
 
-  // Build map once open + google ready
   useEffect(() => {
     if (!open) return;
     loadGoogleMaps().then(() => {
       if (!mapRef.current) return;
-      const startLat = initial?.lat  || 22.5726;
-      const startLng = initial?.lng  || 88.3639;
-
+      const sLat = initial?.lat || 22.5726, sLng = initial?.lng || 88.3639;
       if (!gMapRef.current) {
-        gMapRef.current = new window.google.maps.Map(mapRef.current, {
-          center: { lat: startLat, lng: startLng },
-          zoom: 16,
-          disableDefaultUI: true,
-          zoomControl: true,
-        });
-
-        markerRef.current = new window.google.maps.Marker({
-          position: { lat: startLat, lng: startLng },
-          map: gMapRef.current,
-          draggable: true,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: "#4285F4",
-            fillOpacity: 1,
-            strokeColor: "#fff",
-            strokeWeight: 3,
-          },
-        });
-
-        // When user drags marker
-        markerRef.current.addListener("dragend", (e) => {
-          const newLat = e.latLng.lat();
-          const newLng = e.latLng.lng();
-          setLat(newLat); setLng(newLng);
-          reverseGeocode(newLat, newLng);
-        });
-
-        // When user clicks map (move pin)
-        gMapRef.current.addListener("click", (e) => {
-          const newLat = e.latLng.lat();
-          const newLng = e.latLng.lng();
-          markerRef.current.setPosition({ lat: newLat, lng: newLng });
-          setLat(newLat); setLng(newLng);
-          reverseGeocode(newLat, newLng);
-        });
+        gMapRef.current = new window.google.maps.Map(mapRef.current, { center:{lat:sLat,lng:sLng}, zoom:16, disableDefaultUI:true, zoomControl:true });
+        markerRef.current = new window.google.maps.Marker({ position:{lat:sLat,lng:sLng}, map:gMapRef.current, draggable:true, icon:{path:window.google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#4285F4",fillOpacity:1,strokeColor:"#fff",strokeWeight:3} });
+        markerRef.current.addListener("dragend", (e) => { const nLat=e.latLng.lat(),nLng=e.latLng.lng(); setLat(nLat);setLng(nLng);reverseGeocode(nLat,nLng); });
+        gMapRef.current.addListener("click", (e) => { const nLat=e.latLng.lat(),nLng=e.latLng.lng(); markerRef.current.setPosition({lat:nLat,lng:nLng});setLat(nLat);setLng(nLng);reverseGeocode(nLat,nLng); });
       } else {
-        gMapRef.current.setCenter({ lat: startLat, lng: startLng });
-        markerRef.current.setPosition({ lat: startLat, lng: startLng });
+        gMapRef.current.setCenter({lat:sLat,lng:sLng});
+        markerRef.current.setPosition({lat:sLat,lng:sLng});
       }
-
-      setLat(startLat); setLng(startLng);
-      if (initial?.address) {
-        setDisplayAddr(initial.address);
-        setShortAddr(initial.address.split(",")[0]);
-      } else {
-        reverseGeocode(startLat, startLng);
-      }
+      setLat(sLat); setLng(sLng);
+      if (initial?.address) { setDisplayAddr(initial.address); setShortAddr(initial.address.split(",")[0]); }
+      else reverseGeocode(sLat, sLng);
     });
   }, [open]);
 
-  // When search picks a new location
-  const handleSearchSelect = ({ address, lat: newLat, lng: newLng }) => {
+  const handleSearchSelect = ({ address, lat: nLat, lng: nLng }) => {
     setShowSearch(false);
-    if (newLat && newLng && gMapRef.current && markerRef.current) {
-      gMapRef.current.setCenter({ lat: newLat, lng: newLng });
-      markerRef.current.setPosition({ lat: newLat, lng: newLng });
-      setLat(newLat); setLng(newLng);
-    }
-    setDisplayAddr(address);
-    setShortAddr(address.split(",")[0]);
+    if (nLat && nLng && gMapRef.current && markerRef.current) { gMapRef.current.setCenter({lat:nLat,lng:nLng}); markerRef.current.setPosition({lat:nLat,lng:nLng}); setLat(nLat); setLng(nLng); }
+    setDisplayAddr(address); setShortAddr(address.split(",")[0]);
   };
 
   const handleSave = async () => {
     if (!displayAddr || saving) return;
     setSaving(true);
     try {
-      const res  = await authFetch("/api/addresses", {
-        method: "POST",
-        body: JSON.stringify({
-          full_address: displayAddr,
-          house_flat:   house,
-          landmark,
-          label:        saveAs,
-          lat,
-          lng,
-          is_default:   true,
-        }),
-      });
+      const res  = await authFetch("/api/addresses", { method:"POST", body:JSON.stringify({ full_address:displayAddr, house_flat:house, landmark, label:saveAs, lat, lng, is_default:true }) });
       const data = await res.json();
-      if (data.status === "address saved") {
-        onSaved({ id: data.id, label: saveAs, full_address: displayAddr, house_flat: house, landmark, lat, lng, is_default: true });
-        onClose();
-      }
-    } catch (err) {
-      console.error("Save address failed:", err);
-    } finally {
-      setSaving(false);
-    }
+      if (data.status === "address saved") { onSaved({ id:data.id, label:saveAs, full_address:displayAddr, house_flat:house, landmark, lat, lng, is_default:true }); onClose(); }
+    } catch (err) { console.error("Save address failed:", err); }
+    finally { setSaving(false); }
   };
 
   return (
     <>
       <AnimatedModal open={open} onClose={onClose} wide>
         <div style={{ display:"flex", borderRadius:14, overflow:"hidden", background:"white", boxShadow:"0 24px 64px rgba(0,0,0,.4)", width:"min(900px,95vw)", height:"min(580px,85vh)" }}>
-          {/* ── MAP (left) ── */}
           <div style={{ flex:1, position:"relative", minWidth:0 }}>
             <div ref={mapRef} style={{ width:"100%", height:"100%" }} />
-
-            {/* Tooltip below pin */}
-            <div style={{ position:"absolute", bottom:"38%", left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.75)", color:"white", borderRadius:6, padding:"6px 12px", fontSize:12, whiteSpace:"nowrap", pointerEvents:"none" }}>
-              Place the pin accurately on map
-            </div>
-
-            {/* GPS button */}
-            <button
-              onClick={() => {
-                navigator.geolocation?.getCurrentPosition((pos) => {
-                  const { latitude: la, longitude: lo } = pos.coords;
-                  if (gMapRef.current && markerRef.current) {
-                    gMapRef.current.setCenter({ lat: la, lng: lo });
-                    markerRef.current.setPosition({ lat: la, lng: lo });
-                    setLat(la); setLng(lo);
-                    reverseGeocode(la, lo);
-                  }
-                });
-              }}
-              style={{ position:"absolute", bottom:70, right:12, width:36, height:36, borderRadius:"50%", background:"white", border:"none", boxShadow:"0 2px 8px rgba(0,0,0,.2)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-            >
-              <LocIcon />
-            </button>
+            <div style={{ position:"absolute", bottom:"38%", left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.75)", color:"white", borderRadius:6, padding:"6px 12px", fontSize:12, whiteSpace:"nowrap", pointerEvents:"none" }}>Place the pin accurately on map</div>
+            <button onClick={() => { navigator.geolocation?.getCurrentPosition((pos)=>{ const {latitude:la,longitude:lo}=pos.coords; if(gMapRef.current&&markerRef.current){gMapRef.current.setCenter({lat:la,lng:lo});markerRef.current.setPosition({lat:la,lng:lo});setLat(la);setLng(lo);reverseGeocode(la,lo);} }); }} style={{ position:"absolute", bottom:70, right:12, width:36, height:36, borderRadius:"50%", background:"white", border:"none", boxShadow:"0 2px 8px rgba(0,0,0,.2)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><LocIcon /></button>
           </div>
-
-          {/* ── RIGHT PANEL ── */}
           <div style={{ width:340, flexShrink:0, display:"flex", flexDirection:"column", padding:"22px 22px 18px", gap:14, overflowY:"auto" }}>
-            {/* Close */}
-            <button onClick={onClose} style={{ position:"absolute", top:14, right:14, width:32, height:32, borderRadius:"50%", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <CloseIcon />
-            </button>
-
-            {/* Change (→ search) */}
-            <button
-              onClick={() => setShowSearch(true)}
-              style={{ alignSelf:"flex-start", border:"1.5px solid #6a4de8", borderRadius:8, padding:"6px 18px", fontSize:13, fontWeight:600, color:"#6a4de8", background:"white", cursor:"pointer" }}
-            >
-              Change
-            </button>
-
-            {/* Address display */}
+            <button onClick={onClose} style={{ position:"absolute", top:14, right:14, width:32, height:32, borderRadius:"50%", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon /></button>
+            <button onClick={() => setShowSearch(true)} style={{ alignSelf:"flex-start", border:"1.5px solid #6a4de8", borderRadius:8, padding:"6px 18px", fontSize:13, fontWeight:600, color:"#6a4de8", background:"white", cursor:"pointer" }}>Change</button>
             <div>
               <p style={{ margin:0, fontSize:18, fontWeight:700, color:"#1a1a1a" }}>{shortAddr || "Locating…"}</p>
               <p style={{ margin:"4px 0 0", fontSize:13, color:"#555", lineHeight:1.5 }}>{displayAddr}</p>
             </div>
-
-            {/* House/Flat */}
-            <input
-              value={house} onChange={(e) => setHouse(e.target.value)}
-              placeholder="House/Flat Number*"
-              style={{ border:"1px solid #ddd", borderRadius:8, padding:"11px 14px", fontSize:14, outline:"none", fontFamily:"inherit" }}
-            />
-
-            {/* Landmark */}
-            <input
-              value={landmark} onChange={(e) => setLandmark(e.target.value)}
-              placeholder="Landmark (Optional)"
-              style={{ border:"1px solid #ddd", borderRadius:8, padding:"11px 14px", fontSize:14, outline:"none", fontFamily:"inherit" }}
-            />
-
-            {/* Save as */}
+            <input value={house} onChange={(e)=>setHouse(e.target.value)} placeholder="House/Flat Number*" style={{ border:"1px solid #ddd", borderRadius:8, padding:"11px 14px", fontSize:14, outline:"none", fontFamily:"inherit" }} />
+            <input value={landmark} onChange={(e)=>setLandmark(e.target.value)} placeholder="Landmark (Optional)" style={{ border:"1px solid #ddd", borderRadius:8, padding:"11px 14px", fontSize:14, outline:"none", fontFamily:"inherit" }} />
             <div>
               <p style={{ margin:"0 0 10px", fontSize:14, fontWeight:500, color:"#333" }}>Save as</p>
               <div style={{ display:"flex", gap:10 }}>
                 {["Home","Other"].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setSaveAs(opt)}
-                    style={{
-                      padding:"8px 22px", borderRadius:8, fontSize:14, fontWeight:500, cursor:"pointer",
-                      border: saveAs === opt ? "1.5px solid #6a4de8" : "1.5px solid #ddd",
-                      background: saveAs === opt ? "#f3f0ff" : "white",
-                      color: saveAs === opt ? "#6a4de8" : "#555",
-                    }}
-                  >
-                    {opt}
-                  </button>
+                  <button key={opt} onClick={()=>setSaveAs(opt)} style={{ padding:"8px 22px", borderRadius:8, fontSize:14, fontWeight:500, cursor:"pointer", border:saveAs===opt?"1.5px solid #6a4de8":"1.5px solid #ddd", background:saveAs===opt?"#f3f0ff":"white", color:saveAs===opt?"#6a4de8":"#555" }}>{opt}</button>
                 ))}
               </div>
             </div>
-
             <div style={{ flex:1 }} />
-
-            {/* Save button */}
-            <button
-              onClick={handleSave}
-              disabled={!displayAddr || saving}
-              style={{
-                width:"100%", padding:"14px 0", border:"none", borderRadius:8,
-                background: displayAddr && !saving ? "linear-gradient(90deg,#6a4de8,#7b5cfa)" : "#ccc",
-                color:"white", fontWeight:600, fontSize:15, cursor: displayAddr && !saving ? "pointer" : "not-allowed",
-              }}
-            >
-              {saving ? "Saving…" : "Save and proceed to slots"}
-            </button>
+            <button onClick={handleSave} disabled={!displayAddr||saving} style={{ width:"100%", padding:"14px 0", border:"none", borderRadius:8, background:displayAddr&&!saving?"linear-gradient(90deg,#6a4de8,#7b5cfa)":"#ccc", color:"white", fontWeight:600, fontSize:15, cursor:displayAddr&&!saving?"pointer":"not-allowed" }}>{saving?"Saving…":"Save and proceed to slots"}</button>
           </div>
         </div>
       </AnimatedModal>
-
-      {/* Search floats on top of map */}
-      <SearchModal
-        open={showSearch}
-        onClose={() => setShowSearch(false)}
-        onSelect={handleSearchSelect}
-        recents={[]}
-      />
+      <SearchModal open={showSearch} onClose={()=>setShowSearch(false)} onSelect={handleSearchSelect} recents={[]} />
     </>
   );
 }
@@ -533,20 +400,13 @@ function SavedAddressModal({ open, onClose, addresses, loading, onAddNew, onSele
   return (
     <AnimatedModal open={open} onClose={onClose}>
       <div style={{ background:"white", borderRadius:14, width:480, maxWidth:"92vw", padding:"24px 24px 20px", position:"relative", boxShadow:"0 20px 60px rgba(0,0,0,.3)" }}>
-        <button onClick={onClose} style={{ position:"absolute", top:16, right:16, width:32, height:32, borderRadius:"50%", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <CloseIcon />
-        </button>
-
+        <button onClick={onClose} style={{ position:"absolute", top:16, right:16, width:32, height:32, borderRadius:"50%", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon /></button>
         <p style={{ fontSize:18, fontWeight:600, color:"#1a1a1a", margin:"0 0 16px" }}>Saved address</p>
         <div style={{ height:1, background:"#eee", marginBottom:16 }} />
-
-        {/* Add new */}
         <div onClick={onAddNew} style={{ display:"flex", alignItems:"center", gap:8, color:"#6a4de8", fontWeight:600, fontSize:14, cursor:"pointer", marginBottom:16 }}>
-          <span style={{ fontSize:20, lineHeight:1, marginTop:-2 }}>+</span>
-          <span>Add another address</span>
+          <span style={{ fontSize:20, lineHeight:1, marginTop:-2 }}>+</span><span>Add another address</span>
         </div>
         <div style={{ height:1, background:"#eee", marginBottom:4 }} />
-
         {loading ? (
           <p style={{ textAlign:"center", color:"#aaa", padding:"16px 0", fontSize:14 }}>Loading…</p>
         ) : addresses.length === 0 ? (
@@ -554,28 +414,256 @@ function SavedAddressModal({ open, onClose, addresses, loading, onAddNew, onSele
         ) : (
           addresses.map((addr) => (
             <div key={addr.id} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"14px 0", gap:12, borderBottom:"1px solid #f5f5f5" }}>
-              <div style={{ display:"flex", alignItems:"flex-start", gap:12, flex:1, cursor:"pointer" }} onClick={() => onSelectAddress(addr)}>
+              <div style={{ display:"flex", alignItems:"flex-start", gap:12, flex:1, cursor:"pointer" }} onClick={()=>onSelectAddress(addr)}>
                 <input type="radio" readOnly checked={addr.is_default} style={{ marginTop:3, accentColor:"#6a4de8", width:18, height:18, flexShrink:0, cursor:"pointer" }} />
                 <div>
                   <p style={{ fontSize:14, fontWeight:600, color:"#1a1a1a", margin:"0 0 4px" }}>{addr.label}</p>
-                  <p style={{ fontSize:13, color:"#555", margin:0, lineHeight:1.5 }}>
-                    {addr.house_flat ? `${addr.house_flat}, ` : ""}{addr.full_address}
-                    {addr.landmark ? ` (${addr.landmark})` : ""}
-                  </p>
+                  <p style={{ fontSize:13, color:"#555", margin:0, lineHeight:1.5 }}>{addr.house_flat?`${addr.house_flat}, `:""}{addr.full_address}{addr.landmark?` (${addr.landmark})`:""}</p>
                 </div>
               </div>
-              <button onClick={() => onDelete(addr.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", flexShrink:0, opacity:0.5 }}>
-                <CloseIcon c="#666" />
-              </button>
+              <button onClick={()=>onDelete(addr.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", flexShrink:0, opacity:0.5 }}><CloseIcon c="#666" /></button>
             </div>
           ))
         )}
+        <button onClick={onClose} style={{ width:"100%", padding:"14px 0", border:"none", borderRadius:8, background:"linear-gradient(90deg,#6a4de8,#7b5cfa)", color:"white", fontWeight:600, fontSize:15, cursor:"pointer", marginTop:16 }}>Proceed</button>
+      </div>
+    </AnimatedModal>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLOT PICKER MODAL
+   - Fetches from GET /api/slots?group=... with auth token
+   - Shows real service names from the user's Neon DB cart
+   - Slot selection is stored in React state only (no DB write)
+═══════════════════════════════════════════════════════════ */
+function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
+  const [dates,         setDates]         = useState([]);
+  const [times,         setTimes]         = useState([]);
+  const [services,      setServices]      = useState([]); // [{title, duration}] from DB
+  const [durationLabel, setDurationLabel] = useState("");
+  const [selectedDate,  setSelectedDate]  = useState(0);
+  const [selectedTime,  setSelectedTime]  = useState(null);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState("");
+
+  useEffect(() => {
+    if (!open || !groupLabel) return;
+    setLoading(true);
+    setError("");
+    setSelectedDate(0);
+    setSelectedTime(null);
+    setServices([]);
+
+    (async () => {
+      try {
+        const token = await getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res  = await fetch(`${BASE}/api/slots?group=${encodeURIComponent(groupLabel)}`, { headers });
+        const data = await res.json();
+        if (data.status === "success") {
+          setDates(data.dates         || []);
+          setTimes(data.slots         || []);
+          setDurationLabel(data.duration_label || "");
+          setServices(data.services   || []);
+        } else {
+          setError("Could not load slots. Please try again.");
+        }
+      } catch (e) {
+        console.error(e);
+        setError("Network error. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [open, groupLabel]);
+
+  const handleConfirm = () => {
+    if (!selectedTime || !dates[selectedDate]) return;
+    onConfirm({
+      group:  groupLabel,
+      date:   dates[selectedDate].date,
+      day:    dates[selectedDate].day,
+      num:    dates[selectedDate].num,
+      month:  dates[selectedDate].month,
+      time:   selectedTime,
+      label:  fmtSlotLabel(dates[selectedDate].date, selectedTime),
+    });
+    onClose();
+  };
+
+  return (
+    <AnimatedModal open={open} onClose={onClose}>
+      <div style={{ background:"white", borderRadius:14, width:520, maxWidth:"93vw", overflow:"hidden", boxShadow:"0 24px 64px rgba(0,0,0,.35)" }}>
+
+        {/* ── Header ── */}
+        <div style={{ padding:"24px 28px 0" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <p style={{ margin:0, fontSize:22, fontWeight:700, color:"#1a1a1a" }}>{groupLabel}</p>
+            <button onClick={onClose} style={{ width:32, height:32, borderRadius:"50%", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon /></button>
+          </div>
+          <div style={{ height:1, background:"#eee", margin:"18px 0 0" }} />
+        </div>
+
+        <div style={{ padding:"20px 28px 24px", maxHeight:"70vh", overflowY:"auto" }}>
+          {loading ? (
+            <div style={{ textAlign:"center", padding:"32px 0", color:"#aaa" }}>
+              <div style={{ width:28, height:28, border:"3px solid #e0e0e0", borderTopColor:"#6a4de8", borderRadius:"50%", margin:"0 auto 12px", animation:"spin 0.8s linear infinite" }} />
+              Loading slots…
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          ) : error ? (
+            <p style={{ textAlign:"center", color:"#e53935", padding:"24px 0" }}>{error}</p>
+          ) : (
+            <>
+              {/* ── Services from cart (real names from Neon DB) ── */}
+              {services.length > 0 && (
+                <div style={{ background:"#f9f7ff", borderRadius:10, padding:"14px 16px", marginBottom:20, border:"1px solid #e8e2ff" }}>
+                  <p style={{ margin:"0 0 10px", fontSize:13, fontWeight:600, color:"#6a4de8", textTransform:"uppercase", letterSpacing:0.6 }}>
+                    Services included
+                  </p>
+                  {services.map((svc, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 0", borderTop: i > 0 ? "1px solid #ede8ff" : "none" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <TickIcon />
+                        <span style={{ fontSize:14, color:"#1a1a1a", fontWeight:500 }}>{svc.title}</span>
+                      </div>
+                      {svc.duration && (
+                        <span style={{ fontSize:12, color:"#888", flexShrink:0, marginLeft:8 }}>{svc.duration}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Arrival question ── */}
+              <p style={{ margin:"0 0 4px", fontSize:17, fontWeight:600, color:"#1a1a1a" }}>
+                When should the professional arrive?
+              </p>
+              <p style={{ margin:"0 0 18px", fontSize:13, color:"#666" }}>
+                Service will take approx.{" "}
+                <strong style={{ color:"#1a1a1a" }}>{durationLabel || "60 mins"}</strong>
+              </p>
+
+              {/* ── Date strip ── */}
+              <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:6, marginBottom:24 }}>
+                {dates.map((d, i) => (
+                  <button
+                    key={d.date}
+                    onClick={() => setSelectedDate(i)}
+                    style={{
+                      flexShrink:0, minWidth:64, paddingTop:10, paddingBottom:10,
+                      borderRadius:10, border:"1.5px solid",
+                      borderColor: i === selectedDate ? "#6a4de8" : "#ddd",
+                      background:  i === selectedDate ? "#f3f0ff" : "white",
+                      cursor:"pointer", textAlign:"center",
+                    }}
+                  >
+                    <div style={{ fontSize:12, color:i===selectedDate?"#6a4de8":"#888", fontWeight:500, marginBottom:4 }}>{d.day}</div>
+                    <div style={{ fontSize:20, fontWeight:700, color:i===selectedDate?"#6a4de8":"#1a1a1a" }}>{d.num}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Time grid ── */}
+              <p style={{ margin:"0 0 14px", fontSize:16, fontWeight:600, color:"#1a1a1a" }}>
+                Select start time of service
+              </p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+                {times.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedTime(t)}
+                    style={{
+                      padding:"12px 20px", borderRadius:10, fontSize:14, fontWeight:500, cursor:"pointer",
+                      border:"1.5px solid",
+                      borderColor: t === selectedTime ? "#6a4de8" : "#ddd",
+                      background:  t === selectedTime ? "#f3f0ff" : "white",
+                      color:       t === selectedTime ? "#6a4de8" : "#1a1a1a",
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Confirm button ── */}
+        <button
+          onClick={handleConfirm}
+          disabled={!selectedTime || loading}
+          style={{
+            display:"block", width:"100%", padding:"16px 0", border:"none",
+            background: selectedTime && !loading ? "linear-gradient(90deg,#6a4de8,#7b5cfa)" : "#e0e0e0",
+            color: selectedTime && !loading ? "white" : "#aaa",
+            fontWeight:700, fontSize:16,
+            cursor: selectedTime && !loading ? "pointer" : "not-allowed",
+            transition:"background 0.2s",
+          }}
+        >
+          Confirm
+        </button>
+      </div>
+    </AnimatedModal>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SELECT SLOTS MODAL  — lists all cart groups, Select / Edit
+═══════════════════════════════════════════════════════════ */
+function SelectSlotsModal({ open, onClose, groups, slotSelections, onOpenPicker, onConfirmAll }) {
+  const allSelected = groups.length > 0 && groups.every((g) => slotSelections[g]);
+
+  return (
+    <AnimatedModal open={open} onClose={onClose}>
+      <div style={{ background:"white", borderRadius:14, width:500, maxWidth:"92vw", overflow:"hidden", boxShadow:"0 24px 64px rgba(0,0,0,.35)", position:"relative" }}>
+        <button onClick={onClose} style={{ position:"absolute", zIndex:10, top:-46, right:0, width:36, height:36, borderRadius:"50%", border:"2px solid #fff", background:"rgba(0,0,0,.65)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon c="white" /></button>
+
+        <div style={{ padding:"26px 28px 0" }}>
+          <p style={{ margin:0, fontSize:22, fontWeight:700, color:"#1a1a1a" }}>Select slots</p>
+        </div>
+
+        <div style={{ padding:"16px 28px", display:"flex", flexDirection:"column", gap:12 }}>
+          {groups.map((g) => {
+            const sel = slotSelections[g];
+            return (
+              <div key={g} style={{ border:"1.5px solid #e5e5e5", borderRadius:10, padding:"16px 18px", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ margin:0, fontSize:15, fontWeight:600, color:"#1a1a1a" }}>{g}</p>
+                  {sel ? (
+                    <>
+                      <p style={{ margin:"4px 0 0", fontSize:13, color:"#555" }}>Professional will arrive by</p>
+                      <p style={{ margin:"2px 0 0", fontSize:13, fontWeight:600, color:"#2e7d32" }}>{sel.label}</p>
+                    </>
+                  ) : (
+                    <p style={{ margin:"4px 0 0", fontSize:13, color:"#aaa" }}>No slot selected yet</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => onOpenPicker(g)}
+                  style={{ flexShrink:0, padding:"8px 20px", borderRadius:8, border:"1.5px solid #ddd", background:"white", fontSize:14, fontWeight:600, color:"#1a1a1a", cursor:"pointer" }}
+                >
+                  {sel ? "Edit" : "Select"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
 
         <button
-          onClick={onClose}
-          style={{ width:"100%", padding:"14px 0", border:"none", borderRadius:8, background:"linear-gradient(90deg,#6a4de8,#7b5cfa)", color:"white", fontWeight:600, fontSize:15, cursor:"pointer", marginTop:16 }}
+          onClick={() => { if (allSelected) { onConfirmAll(); onClose(); } }}
+          disabled={!allSelected}
+          style={{
+            display:"block", width:"100%", padding:"16px 0", border:"none",
+            background: allSelected ? "linear-gradient(90deg,#6a4de8,#7b5cfa)" : "#e0e0e0",
+            color: allSelected ? "white" : "#aaa",
+            fontWeight:700, fontSize:16,
+            cursor: allSelected ? "pointer" : "not-allowed",
+          }}
         >
-          Proceed
+          Confirm
         </button>
       </div>
     </AnimatedModal>
@@ -638,31 +726,30 @@ const ViewCartComponent = () => {
   const [avoidCall,   setAvoidCall]   = useState(false);
   const [userEmail,   setUserEmail]   = useState("");
 
-  // Address state
-  const [addresses,      setAddresses]      = useState([]);
-  const [addrLoading,    setAddrLoading]    = useState(true);
-  const [activeAddr,     setActiveAddr]     = useState(null); // the currently selected/default
+  const [addresses,   setAddresses]   = useState([]);
+  const [addrLoading, setAddrLoading] = useState(true);
+  const [activeAddr,  setActiveAddr]  = useState(null);
 
-  // Modal visibility
-  const [showSaved,   setShowSaved]   = useState(false);
-  const [showMap,     setShowMap]     = useState(false);
-  const [mapInitial,  setMapInitial]  = useState(null); // {address,lat,lng}
+  const [showSaved,  setShowSaved]  = useState(false);
+  const [showMap,    setShowMap]    = useState(false);
+  const [mapInitial, setMapInitial] = useState(null);
+
+  // Slot state — pure React, never written to DB
+  const [showSelectSlots, setShowSelectSlots] = useState(false);
+  const [showPicker,      setShowPicker]      = useState(false);
+  const [pickerGroup,     setPickerGroup]     = useState("");
+  const [slotSelections,  setSlotSelections]  = useState({});
 
   /* ── Fetch cart ── */
-  const [showSlotModal, setShowSlotModal] = useState(false);
-const [selectedDate, setSelectedDate] = useState(0);
-const [selectedTime, setSelectedTime] = useState(null);
   useEffect(() => {
-    async function fetchAll() {
+    (async () => {
       try {
         const user = getAuth().currentUser;
         if (!user) { setCartLoading(false); return; }
         setUserEmail(user.email || "");
         const token = await user.getIdToken();
-        const res   = await fetch(`${BASE}/api/cart/details`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const res   = await fetch(`${BASE}/api/cart/details`, { headers: { Authorization: `Bearer ${token}` } });
+        const data  = await res.json();
         if (data.status === "success") {
           setCartItems(data.data);
           const q = {};
@@ -671,11 +758,10 @@ const [selectedTime, setSelectedTime] = useState(null);
         }
       } catch (err) { console.error(err); }
       finally { setCartLoading(false); }
-    }
-    fetchAll();
+    })();
   }, []);
 
-  /* ── Fetch saved addresses ── */
+  /* ── Fetch addresses ── */
   const fetchAddresses = useCallback(async () => {
     setAddrLoading(true);
     try {
@@ -692,51 +778,34 @@ const [selectedTime, setSelectedTime] = useState(null);
 
   useEffect(() => { fetchAddresses(); }, []);
 
-  /* ── Address display string ── */
   const addrShort = activeAddr
     ? `${activeAddr.label} – ${activeAddr.house_flat ? activeAddr.house_flat + ", " : ""}${activeAddr.full_address}`.slice(0, 48) + "…"
     : "Select address";
 
-  /* ── When user picks address from saved list ── */
   const handleSelectAddress = async (addr) => {
     setActiveAddr(addr);
-    // Update default in DB
-    try {
-      await authFetch(`/api/addresses/${addr.id}/default`, { method: "PATCH" });
-      setAddresses((prev) => prev.map((a) => ({ ...a, is_default: a.id === addr.id })));
-    } catch {}
+    try { await authFetch(`/api/addresses/${addr.id}/default`, { method:"PATCH" }); setAddresses((p) => p.map((a) => ({ ...a, is_default: a.id === addr.id }))); } catch {}
     setShowSaved(false);
   };
 
-  /* ── Delete address ── */
   const handleDeleteAddress = async (id) => {
     try {
-      await authFetch(`/api/addresses/${id}`, { method: "DELETE" });
-      setAddresses((prev) => {
-        const next = prev.filter((a) => a.id !== id);
-        if (activeAddr?.id === id) setActiveAddr(next[0] || null);
-        return next;
-      });
+      await authFetch(`/api/addresses/${id}`, { method:"DELETE" });
+      setAddresses((prev) => { const next = prev.filter((a) => a.id !== id); if (activeAddr?.id === id) setActiveAddr(next[0] || null); return next; });
     } catch (err) { console.error(err); }
   };
 
-  /* ── When new address saved from Map ── */
   const handleAddressSaved = (newAddr) => {
     setAddresses((prev) => [newAddr, ...prev.map((a) => ({ ...a, is_default: false }))]);
     setActiveAddr(newAddr);
   };
 
-  /* ── Open map (from saved modal) ── */
   const openMap = () => {
     setShowSaved(false);
-    setTimeout(() => {
-      setMapInitial(activeAddr ? { address: activeAddr.full_address, lat: activeAddr.lat, lng: activeAddr.lng } : null);
-      setShowMap(true);
-    }, 300);
+    setTimeout(() => { setMapInitial(activeAddr ? { address:activeAddr.full_address, lat:activeAddr.lat, lng:activeAddr.lng } : null); setShowMap(true); }, 300);
   };
 
-  const adjustQty = (id, delta) =>
-    setQuantities((q) => ({ ...q, [id]: Math.max(1, (q[id] ?? 1) + delta) }));
+  const adjustQty = (id, delta) => setQuantities((q) => ({ ...q, [id]: Math.max(1, (q[id] ?? 1) + delta) }));
 
   const groups = cartItems.reduce((acc, item) => {
     const label = GROUP_LABELS[item.source] || item.source;
@@ -745,17 +814,27 @@ const [selectedTime, setSelectedTime] = useState(null);
     return acc;
   }, {});
 
-  const total = cartItems.reduce(
-    (sum, item) => sum + item.actual_price * (quantities[item.id] ?? item.qty), 0
-  );
+  const groupLabels = Object.keys(groups);
+
+  const total = cartItems.reduce((sum, item) => sum + item.actual_price * (quantities[item.id] ?? item.qty), 0);
+
+  const openPickerFor = (groupLabel) => { setPickerGroup(groupLabel); setShowPicker(true); };
+
+  const handleSlotConfirmed = (sel) => {
+    setSlotSelections((prev) => ({ ...prev, [sel.group]: sel }));
+    setShowPicker(false);
+    setShowSelectSlots(true);
+  };
+
+  const allSlotsSelected = groupLabels.length > 0 && groupLabels.every((g) => slotSelections[g]);
+  const slotSummary = allSlotsSelected ? groupLabels.map((g) => slotSelections[g].label).join("  •  ") : null;
+
   return (
     <>
       <div style={S.page}>
         <div style={S.container}>
-
-          {/* ──────── LEFT ──────── */}
+          {/* ── LEFT ── */}
           <div style={S.left}>
-            {/* Email */}
             <div style={S.card}>
               <div style={S.cardRow}>
                 <div style={S.iconCircle}><PinIcon /></div>
@@ -766,7 +845,6 @@ const [selectedTime, setSelectedTime] = useState(null);
               </div>
             </div>
 
-            {/* Address */}
             <div style={S.card}>
               <div style={S.cardRow}>
                 <div style={S.iconCircle}><PinIcon /></div>
@@ -778,16 +856,22 @@ const [selectedTime, setSelectedTime] = useState(null);
               </div>
             </div>
 
-            {/* Slot */}
             <div style={S.card}>
               <div style={S.cardRow}>
                 <div style={S.iconCircle}><ClockIcon /></div>
-                <p style={S.cardLabel}>Slot</p>
+                <div style={{ flex:1 }}>
+                  <p style={S.cardLabel}>Slot</p>
+                  {slotSummary && <p style={{ fontSize:13, color:"#2e7d32", margin:"3px 0 0", fontWeight:500 }}>{slotSummary}</p>}
+                </div>
+                {slotSummary && <button style={S.editBtn} onClick={() => setShowSelectSlots(true)}>Edit</button>}
               </div>
-              <button style={S.slotBtn}>Select time &amp; date</button>
+              {!slotSummary && (
+                <button style={S.slotBtn} onClick={() => setShowSelectSlots(true)}>
+                  Select time &amp; date
+                </button>
+              )}
             </div>
 
-            {/* Payment */}
             <div style={S.card}>
               <div style={S.paymentRow}>
                 <div style={{ ...S.iconCircle, background:"#f8f8f8" }}><CardIcon /></div>
@@ -795,7 +879,6 @@ const [selectedTime, setSelectedTime] = useState(null);
               </div>
             </div>
 
-            {/* Policy */}
             <div style={S.policyBox}>
               <p style={S.policyTitle}>Cancellation &amp; reschedule policy</p>
               <p style={S.policyDesc}>A small fee may apply depending on the service if you cancel or reschedule after a certain time</p>
@@ -803,7 +886,7 @@ const [selectedTime, setSelectedTime] = useState(null);
             </div>
           </div>
 
-          {/* ──────── RIGHT ──────── */}
+          {/* ── RIGHT ── */}
           <div style={S.right}>
             {cartLoading ? (
               <div style={S.loading}>Loading cart…</div>
@@ -838,9 +921,7 @@ const [selectedTime, setSelectedTime] = useState(null);
                                 <span style={S.itemPrice}>{fmt(item.actual_price * qty)}</span>
                               </div>
                               {bulletList.length > 0 && (
-                                <ul style={S.bullets}>
-                                  {bulletList.map((b,i) => <li key={i} style={S.bulletItem}>{b}</li>)}
-                                </ul>
+                                <ul style={S.bullets}>{bulletList.map((b,i)=><li key={i} style={S.bulletItem}>{b}</li>)}</ul>
                               )}
                               {!isBathroom && <span style={S.editPkg}>Edit package</span>}
                             </div>
@@ -849,10 +930,7 @@ const [selectedTime, setSelectedTime] = useState(null);
                       })}
                       {isBathroom && (
                         <div style={S.checkboxRow}>
-                          <input type="checkbox" id="avoid-call" checked={avoidCall}
-                            onChange={(e) => setAvoidCall(e.target.checked)}
-                            style={{ width:16, height:16, accentColor:"#6a4de8", cursor:"pointer" }}
-                          />
+                          <input type="checkbox" id="avoid-call" checked={avoidCall} onChange={(e)=>setAvoidCall(e.target.checked)} style={{ width:16, height:16, accentColor:"#6a4de8", cursor:"pointer" }} />
                           <label htmlFor="avoid-call" style={S.checkboxLabel}>Avoid calling before reaching the location</label>
                         </div>
                       )}
@@ -881,23 +959,23 @@ const [selectedTime, setSelectedTime] = useState(null);
         </div>
       </div>
 
-      {/* ── SAVED ADDRESS MODAL ── */}
-      <SavedAddressModal
-        open={showSaved}
-        onClose={() => setShowSaved(false)}
-        addresses={addresses}
-        loading={addrLoading}
-        onAddNew={openMap}
-        onSelectAddress={handleSelectAddress}
-        onDelete={handleDeleteAddress}
+      <SavedAddressModal open={showSaved} onClose={()=>setShowSaved(false)} addresses={addresses} loading={addrLoading} onAddNew={openMap} onSelectAddress={handleSelectAddress} onDelete={handleDeleteAddress} />
+      <MapModal open={showMap} onClose={()=>setShowMap(false)} initial={mapInitial} onSaved={handleAddressSaved} />
+
+      <SelectSlotsModal
+        open={showSelectSlots}
+        onClose={() => setShowSelectSlots(false)}
+        groups={groupLabels}
+        slotSelections={slotSelections}
+        onOpenPicker={(g) => { setShowSelectSlots(false); setTimeout(() => openPickerFor(g), 320); }}
+        onConfirmAll={() => {}}
       />
 
-      {/* ── MAP MODAL ── */}
-      <MapModal
-        open={showMap}
-        onClose={() => setShowMap(false)}
-        initial={mapInitial}
-        onSaved={handleAddressSaved}
+      <SlotPickerModal
+        open={showPicker}
+        onClose={() => { setShowPicker(false); setShowSelectSlots(true); }}
+        groupLabel={pickerGroup}
+        onConfirm={handleSlotConfirmed}
       />
     </>
   );
