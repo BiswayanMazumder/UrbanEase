@@ -740,7 +740,136 @@ async def logout(request: Request):
     delete_sessions(payload["uid"])
     return {"status": "logged out"}
 
-
+@app.get("/api/addresses")
+async def get_addresses(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+ 
+    rows = query("""
+        SELECT id, label, full_address, house_flat, landmark, lat, lng, is_default, created_at
+        FROM user_addresses
+        WHERE firebase_uid = %s
+        ORDER BY is_default DESC, created_at DESC
+    """, (firebase_uid,))
+ 
+    return {
+        "status": "success",
+        "data": [
+            {
+                "id":           r[0],
+                "label":        r[1],
+                "full_address": r[2],
+                "house_flat":   r[3],
+                "landmark":     r[4],
+                "lat":          r[5],
+                "lng":          r[6],
+                "is_default":   r[7],
+                "created_at":   str(r[8]),
+            }
+            for r in rows
+        ]
+    }
+ 
+ 
+# ─────────────────────────────────────────────
+#  POST /api/addresses  – save a new address
+# ─────────────────────────────────────────────
+@app.post("/api/addresses")
+async def save_address(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+    body = await request.json()
+ 
+    full_address = body.get("full_address", "").strip()
+    house_flat   = body.get("house_flat", "").strip()
+    landmark     = body.get("landmark", "").strip()
+    label        = body.get("label", "Home").strip()   # 'Home' | 'Other'
+    lat          = body.get("lat")
+    lng          = body.get("lng")
+    make_default = body.get("is_default", True)
+ 
+    if not full_address:
+        raise HTTPException(status_code=400, detail="full_address is required")
+ 
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+ 
+        # If making default, unset all others first
+        if make_default:
+            cur.execute("""
+                UPDATE user_addresses SET is_default = FALSE
+                WHERE firebase_uid = %s
+            """, (firebase_uid,))
+ 
+        cur.execute("""
+            INSERT INTO user_addresses
+                (firebase_uid, label, full_address, house_flat, landmark, lat, lng, is_default)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (firebase_uid, label, full_address, house_flat, landmark, lat, lng, make_default))
+ 
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+    finally:
+        release_conn(conn)
+ 
+    return {"status": "address saved", "id": new_id}
+ 
+ 
+# ─────────────────────────────────────────────
+#  DELETE /api/addresses/{address_id}
+# ─────────────────────────────────────────────
+@app.delete("/api/addresses/{address_id}")
+async def delete_address(address_id: int, request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+ 
+    # Only delete if the address belongs to this user
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM user_addresses
+            WHERE id = %s AND firebase_uid = %s
+        """, (address_id, firebase_uid))
+        deleted = cur.rowcount
+        conn.commit()
+        cur.close()
+    finally:
+        release_conn(conn)
+ 
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Address not found or not yours")
+ 
+    return {"status": "deleted", "id": address_id}
+ 
+ 
+# ─────────────────────────────────────────────
+#  PATCH /api/addresses/{address_id}/default
+# ─────────────────────────────────────────────
+@app.patch("/api/addresses/{address_id}/default")
+async def set_default_address(address_id: int, request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+ 
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE user_addresses SET is_default = FALSE WHERE firebase_uid = %s
+        """, (firebase_uid,))
+        cur.execute("""
+            UPDATE user_addresses SET is_default = TRUE
+            WHERE id = %s AND firebase_uid = %s
+        """, (address_id, firebase_uid))
+        conn.commit()
+        cur.close()
+    finally:
+        release_conn(conn)
+ 
+    return {"status": "default updated", "id": address_id}
 @app.post("/api/cart")
 async def save_cart(request: Request):
     payload = await verify_firebase_token(request)
@@ -787,7 +916,7 @@ def get_discounts():
     return {"status": "success", "data": [
         {"id": r[0], "code": r[1], "title": r[2], "description": r[3]} for r in rows
     ]}
-
+ 
 
 # Vercel / AWS Lambda handler
 handler = Mangum(app)
