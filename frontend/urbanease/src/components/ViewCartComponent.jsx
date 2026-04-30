@@ -864,7 +864,7 @@ const ViewCartComponent = () => {
       });
     } catch (err) { console.error(err); }
   };
-
+  const navigate = useNavigate();
   const handleAddressSaved = (newAddr) => {
     setAddresses((prev) => [newAddr, ...prev.map((a) => ({ ...a, is_default: false }))]);
     setActiveAddr(newAddr);
@@ -912,6 +912,9 @@ const ViewCartComponent = () => {
       amount: order.amount,
       currency: "INR",
       order_id: order.id,
+      prefill: {
+        email: userEmail,
+      },
 
       handler: async function (response) {
         await fetch(`${BASE}/api/payment/verify`, {
@@ -923,9 +926,13 @@ const ViewCartComponent = () => {
           body: JSON.stringify({
             ...response,
             amount: order.amount,
+            address: activeAddr,
+            slots: slotSelections,
+            cart: cartItems,
+            quantities: quantities
           }),
         });
-        const navigate = useNavigate();
+        
         navigate("/");
       },
     };
