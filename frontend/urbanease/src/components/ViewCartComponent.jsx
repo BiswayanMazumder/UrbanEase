@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
-
+import { useNavigate } from "react-router-dom";
 /* ═══════════════════════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════════════════════ */
@@ -891,6 +891,49 @@ const ViewCartComponent = () => {
 
   const total = cartItems.reduce((sum, item) => sum + item.actual_price * (quantities[item.id] ?? item.qty), 0);
 
+  // 🔥 ADD HERE
+  const handlePayment = async () => {
+    const token = await getToken();
+
+    const res = await fetch(`${BASE}/api/payment/create-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ amount: total * 100 }),
+    });
+
+    const data = await res.json();
+    const order = data.order;
+
+    const options = {
+      key: "rzp_test_SjdYfXttqUz1tz",
+      amount: order.amount,
+      currency: "INR",
+      order_id: order.id,
+
+      handler: async function (response) {
+        await fetch(`${BASE}/api/payment/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...response,
+            amount: order.amount,
+          }),
+        });
+        const navigate = useNavigate();
+        navigate("/");
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
   const openPickerFor = (groupLabel) => { setPickerGroup(groupLabel); setShowPicker(true); };
 
   const handleSlotConfirmed = (sel) => {
@@ -977,8 +1020,7 @@ const ViewCartComponent = () => {
               <button
                 onClick={() => {
                   if (allSlotsSelected) {
-                    // TODO: navigate to payment / trigger payment flow
-                    alert("Proceeding to payment…");
+                    handlePayment();   // 🔥 THIS LINE
                   }
                 }}
                 disabled={!allSlotsSelected}
