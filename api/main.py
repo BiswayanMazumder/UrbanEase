@@ -10,6 +10,8 @@ import time
 from datetime import datetime
 from typing import Any, Optional
 from functools import wraps
+import re as _re
+from datetime import date, timedelta
 
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 
@@ -595,8 +597,171 @@ def get_men_packages():
          "badge": r[7], "includes": r[8]}
         for r in rows
     ]}
-
-
+_DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"]
+ 
+SLOT_TIMES: dict[str, list[str]] = {
+    "Salon Prime":        ["09:00 AM", "10:30 AM", "12:00 PM", "02:30 PM", "04:00 PM", "07:00 PM"],
+    "Men's Salon Prime":  ["09:00 AM", "10:30 AM", "12:00 PM", "02:30 PM", "04:00 PM", "07:00 PM"],
+    "Bathroom Cleaning":  ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM"],
+    "Services":           ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
+    "Men's Services":     ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
+    "Cleaning Services":  ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM"],
+    "Large Appliances":   ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM"],
+    "Spa":                ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM"],
+    "Salon for Women":    ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
+    "Most Booked":        ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"],
+}
+ 
+# Maps group label → list of (table_name, has_duration_column)
+# Table names with spaces must be quoted when used in SQL (handled below).
+GROUP_SOURCE_MAP: dict[str, list[tuple[str, bool]]] = {
+    "Salon Prime":       [("packages", True),  ("salon_prime", False)],
+    "Men's Salon Prime": [("men_packages", True), ("men_salon_prime", False)],
+    "Bathroom Cleaning": [("bathroom_cleaning_services", True)],
+    "Services":          [("services", False)],
+    "Men's Services":    [("men_services", False)],
+    "Cleaning Services": [("cleaning services", False)],
+    "Large Appliances":  [("large appliances services", False)],
+    "Spa":               [("spa for women", False)],
+    "Salon for Women":   [("salon for women", False)],
+    "Most Booked":       [("most_booked_services", True)],
+}
+ 
+DAY_ABBR   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+ 
+ 
+def _to_mins(v) -> int:
+    """Convert a duration value (int minutes OR string like '40 mins'/'1 hr') to int minutes."""
+    if v is None:
+        return 0
+    if isinstance(v, (int, float)):
+        return max(0, int(v))
+    s = str(v).lower()
+    total = 0
+    for m in _re.finditer(r'(\d+)\s*(hr|hour|min)', s):
+        n, unit = int(m.group(1)), m.group(2)
+        total += n * 60 if unit.startswith('h') else n
+    return total or 60
+ 
+ 
+def _duration_label(raw) -> str:
+    """Return human-readable duration like '40 mins' or '1 hr 30 mins'."""
+    if raw is None:
+        return ""
+    if isinstance(raw, str) and not raw.strip().lstrip('-').isdigit():
+        return raw.strip()          # already a label like "40 mins"
+    mins = _to_mins(raw)
+    if mins <= 0:
+        return ""
+    h, m = divmod(mins, 60)
+    return f"{h} hr" if m == 0 else (f"{h} hr {m} mins" if h else f"{mins} mins")
+ 
+ 
+def _fetch_cart_services(firebase_uid: str, group: str) -> tuple[list[dict], str]:
+    """
+    Joins cart_items with the relevant product tables for `group`.
+    Returns:
+        services      – list of {title, duration} dicts
+        best_duration – human-readable label for the longest duration found
+    """
+    sources = GROUP_SOURCE_MAP.get(group, [])
+    if not sources:
+        return [], ""
+ 
+    union_parts = []
+    for (tbl, has_dur) in sources:
+        quoted  = f'"{tbl}"'
+        dur_col = "duration" if has_dur else "NULL"
+        union_parts.append(
+            f"SELECT id, title, {dur_col} AS duration FROM {quoted}"
+        )
+ 
+    union_sql = " UNION ALL ".join(union_parts)
+ 
+    sql = f"""
+        SELECT p.title, p.duration
+        FROM cart_items c
+        JOIN ({union_sql}) p ON c.product_id = p.id
+        WHERE c.firebase_uid = %s
+        ORDER BY p.title
+    """
+ 
+    rows  = query(sql, (firebase_uid,))
+    items = [{"title": r[0], "duration": _duration_label(r[1])} for r in rows]
+ 
+    # Pick the largest duration across all fetched rows
+    best_raw = max(
+        (r[1] for r in rows if r[1] is not None),
+        key=_to_mins,
+        default=None,
+    )
+    best_label = _duration_label(best_raw) if best_raw is not None else ""
+    return items, best_label
+ 
+ 
+@app.get("/api/slots")
+async def get_slots(group: str = "", request: Request = None):
+    """
+    Returns available time slots for a service group, plus the real service
+    names from the user's Neon DB cart (when a valid Firebase token is supplied).
+ 
+    Query param:
+        group  – group label, e.g. "Salon Prime", "Bathroom Cleaning"
+ 
+    Response shape:
+    {
+        "status":         "success",
+        "group":          "Salon Prime",
+        "duration_label": "40 mins",          # from DB; fallback "60 mins"
+        "dates":          [...],              # next 7 days
+        "slots":          ["09:00 AM", ...],  # selectable times
+        "services": [                         # items in user's cart for this group
+            {"title": "Haircut & massage", "duration": "40 mins"},
+            ...
+        ]
+    }
+ 
+    Auth: optional Bearer token. Without it, `services` is [] and
+    `duration_label` is the static fallback.
+    """
+ 
+    # ── Build the next-7-days date list ──────────────────────────────────
+    today = date.today()
+    dates = [
+        {
+            "date":  (d := today + timedelta(days=i)).isoformat(),
+            "day":   DAY_ABBR[d.weekday()],
+            "num":   d.day,
+            "month": MONTH_ABBR[d.month - 1],
+        }
+        for i in range(7)
+    ]
+ 
+    times = SLOT_TIMES.get(group, _DEFAULT_SLOTS)
+ 
+    # ── Try to personalise with real cart data ────────────────────────────
+    services: list[dict] = []
+    duration_label        = ""
+ 
+    auth_header = request.headers.get("Authorization", "") if request else ""
+    if auth_header.startswith("Bearer "):
+        try:
+            payload      = await verify_firebase_token(request)
+            firebase_uid = payload["uid"]
+            services, duration_label = _fetch_cart_services(firebase_uid, group)
+        except Exception as exc:
+            # Invalid / expired token or DB error — degrade gracefully
+            print(f"[slots] personalisation skipped: {exc}")
+ 
+    return {
+        "status":         "success",
+        "group":          group,
+        "duration_label": duration_label or "60 mins",
+        "dates":          dates,
+        "slots":          times,
+        "services":       services,
+    }
 @app.get("/api/men/services/{category}")
 @cached(lambda category: f"men_services:{category}", ttl=600)
 def get_men_services_by_category(category: str):
