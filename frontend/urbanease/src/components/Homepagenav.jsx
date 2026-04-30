@@ -142,7 +142,7 @@ export default function HomepageNavBar({ onProfileClick }) {
             .slice(0, 8);
         setSearchResults(results);
     }, [searchQuery, allProducts]);
-
+    // const navigate = useNavigate();
     // ── Close dropdown on outside click ─────────────────────────────────────
     useEffect(() => {
         const handleClick = (e) => {
@@ -384,8 +384,8 @@ export default function HomepageNavBar({ onProfileClick }) {
 
                 {/* Login + Cart */}
                 <div className="loginandcart">
-                    <div className="cartsvg">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <div className="cartsvg" onClick={()=>navigate('/checkout')}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" >
                             <path fillRule="evenodd" clipRule="evenodd" d="M3.327 2H1.75v2h1.389l3.339 11.687A2.5 2.5 0 008.88 17.5h8.988a2.5 2.5 0 002.403-1.813l2.475-8.662a1 1 0 00-.961-1.275H5.719l-.71-2.48A1.75 1.75 0 003.328 2zm5.074 13.137L6.29 7.75h14.17l-2.11 7.387a.5.5 0 01-.482.363H8.882a.5.5 0 01-.48-.363z" />
                             <path d="M8.5 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM18.25 21.75a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                         </svg>
