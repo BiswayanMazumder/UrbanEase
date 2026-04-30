@@ -2,6 +2,7 @@
     width: 100%;
     height: 100vh;
     background-color: white;
+    font-family: 'roboto', sans-serif;
 }
 
 .viewcart-top-banner {
@@ -16,7 +17,7 @@
 .jdbjdbf{
     font-size: 20px;
     font-weight: 600;
-    margin-left: 15vw;
+    margin-left: 14vw;
     color: #1a1a1a;
     font-family: "Roboto", sans-serif;
     display: flex;
@@ -24,4 +25,14 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
+}
+.wehbhbfbfr {
+    width: 100%;
+    height: 150px;
+    background-color: red;
+    display: flex;
+    margin-top: 50px;
+    padding-left: 15vw; /* instead of margin */
+    justify-content: center;
+    align-items: center;
 }
