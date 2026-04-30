@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2 import pool as psycopg2_pool
 import os
 import httpx
+import json
 import hmac
 import hashlib
 import asyncio
@@ -203,16 +204,29 @@ async def create_order(request: Request):
     }
 @app.post("/api/payment/verify")
 async def verify_payment(request: Request):
+    # 🔐 Verify user
     payload = await verify_firebase_token(request)
     firebase_uid = payload["uid"]
 
     body = await request.json()
 
-    order_id = body["razorpay_order_id"]
-    payment_id = body["razorpay_payment_id"]
-    signature = body["razorpay_signature"]
-    amount = body["amount"]
+    # 💳 Razorpay data
+    order_id = body.get("razorpay_order_id")
+    payment_id = body.get("razorpay_payment_id")
+    signature = body.get("razorpay_signature")
+    amount = body.get("amount")
 
+    # 🔥 Booking data (NEW)
+    address = body.get("address")
+    slots = body.get("slots")
+    cart = body.get("cart")
+    quantities = body.get("quantities")
+
+    # ❌ Basic validation
+    if not all([order_id, payment_id, signature, amount]):
+        raise HTTPException(status_code=400, detail="Missing payment data")
+
+    # 🔐 Verify signature
     generated_signature = hmac.new(
         RAZORPAY_KEY_SECRET.encode(),
         f"{order_id}|{payment_id}".encode(),
@@ -222,27 +236,44 @@ async def verify_payment(request: Request):
     if generated_signature != signature:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # ✅ Save to Neon DB
-    execute("""
-        INSERT INTO orders (
+    # 💾 Save full order in Neon DB
+    try:
+        execute("""
+            INSERT INTO orders (
+                firebase_uid,
+                razorpay_order_id,
+                razorpay_payment_id,
+                razorpay_signature,
+                amount,
+                status,
+                address,
+                slots,
+                cart,
+                quantities,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        """, (
             firebase_uid,
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
+            order_id,
+            payment_id,
+            signature,
             amount,
-            status
-        )
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, (
-        firebase_uid,
-        order_id,
-        payment_id,
-        signature,
-        amount,
-        "paid"
-    ))
+            "paid",
+            json.dumps(address),
+            json.dumps(slots),
+            json.dumps(cart),
+            json.dumps(quantities)
+        ))
 
-    return {"status": "payment verified & stored"}
+    except Exception as e:
+        print("❌ DB insert failed:", str(e))
+        raise HTTPException(status_code=500, detail="Failed to store order")
+
+    return {
+        "status": "success",
+        "message": "Payment verified and order stored"
+    }
 def delete_sessions(firebase_uid: str):
     conn = get_conn()
     try:
