@@ -55,7 +55,7 @@ function convertTo24(timeStr) {
 /** Returns hours until slot (negative if past) */
 function hoursUntilSlot(slot) {
   if (!slot?.date || !slot?.time) return Infinity;
-  const slotDate = new Date(`${slot.date}T${convertTo24(slot.time)}`);
+  const slotDate = new Date(`${slot.date}T${convertTo24(slot.time)}:00+05:30`);
   return (slotDate - new Date()) / (1000 * 60 * 60);
 }
 
@@ -673,7 +673,7 @@ export default function BookingPageBody() {
     const { order } = rescheduleTarget;
 
     // Guard: never allow rescheduling to a past datetime
-    const newDt = new Date(`${newDate}T${convertTo24(newTime)}`);
+    const newDt = new Date(`${newDate}T${convertTo24(newTime)}:00+05:30`);
     if (newDt <= new Date()) {
       alert("Please select a future date and time.");
       return;
