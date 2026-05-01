@@ -32,7 +32,7 @@ function safeParse(val, fallback) {
 }
 
 function formatAmount(amount) {
-  return Number(amount || 0).toLocaleString("en-IN");
+  return Math.round(Number(amount || 0)).toLocaleString("en-IN");
 }
 
 function formatDate(str) {
@@ -77,9 +77,9 @@ function isRescheduleChargeable(slot) {
 }
 
 const STATUS_COLORS = {
-  paid:      { bg: "#DCFCE7", text: "#15803D" },
-  pending:   { bg: "#FEF9C3", text: "#A16207" },
-  failed:    { bg: "#FEE2E2", text: "#B91C1C" },
+  paid: { bg: "#DCFCE7", text: "#15803D" },
+  pending: { bg: "#FEF9C3", text: "#A16207" },
+  failed: { bg: "#FEE2E2", text: "#B91C1C" },
   cancelled: { bg: "#F3F4F6", text: "#6B7280" },
 };
 function getStatusStyle(s) {
@@ -90,9 +90,9 @@ function getStatusStyle(s) {
 // NEXT 7 DATES HELPER
 // ─────────────────────────────────────────────────────────────
 
-const DAY_ABBR   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DEFAULT_TIMES = ["09:00 AM","11:00 AM","01:00 PM","03:00 PM","05:00 PM","07:00 PM"];
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DEFAULT_TIMES = ["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM", "07:00 PM"];
 
 function getNext7Dates() {
   // Start from tomorrow — avoids showing today where most/all slots may be past
@@ -100,9 +100,9 @@ function getNext7Dates() {
     const d = new Date();
     d.setDate(d.getDate() + i + 1);
     return {
-      date:  d.toISOString().split("T")[0],
-      day:   DAY_ABBR[d.getDay()],
-      num:   d.getDate(),
+      date: d.toISOString().split("T")[0],
+      day: DAY_ABBR[d.getDay()],
+      num: d.getDate(),
       month: MONTH_ABBR[d.getMonth()],
     };
   });
@@ -282,12 +282,12 @@ function RescheduleModal({ slot, slotKey, order, onConfirm, onClose, loading, av
 // ─────────────────────────────────────────────────────────────
 
 function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot }) {
-  const cancellable    = isSlotCancellable(slot, orderStatus);
-  const reschedulable  = isSlotReschedulable(slot, orderStatus);
-  const chargeable     = isRescheduleChargeable(slot);
-  const isCancelled    = slot._cancelled;
-  const hours          = hoursUntilSlot(slot);
-  const isPast         = hours <= 0;
+  const cancellable = isSlotCancellable(slot, orderStatus);
+  const reschedulable = isSlotReschedulable(slot, orderStatus);
+  const chargeable = isRescheduleChargeable(slot);
+  const isCancelled = slot._cancelled;
+  const hours = hoursUntilSlot(slot);
+  const isPast = hours <= 0;
 
   return (
     <div style={{
@@ -341,10 +341,11 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
 // ─────────────────────────────────────────────────────────────
 
 function BookingCard({ order, onCancelRequest, onCancelSlotRequest, onRescheduleSlotRequest }) {
-  const address  = safeParse(order.address, {});
+  const address = safeParse(order.address, {});
   const slotsMap = safeParse(order.slots, {});
-  const cart     = safeParse(order.cart, []);
-  const slots    = Object.entries(slotsMap); // [[key, slot], ...]
+  const cart = safeParse(order.cart, []);
+  const cancelledSlots = Object.values(slotsMap).filter(s => s._cancelled);
+  const slots = Object.entries(slotsMap); // [[key, slot], ...]
 
   const fullAddress = [address.house_flat, address.landmark, address.full_address]
     .filter(Boolean).join(", ");
@@ -401,20 +402,75 @@ function BookingCard({ order, onCancelRequest, onCancelSlotRequest, onReschedule
       {/* CART */}
       {cart.length > 0 && (
         <div style={styles.section}>
+          {cancelledSlots.length > 0 && (
+            <div style={{
+              background: "#FEF2F2",
+              color: "#B91C1C",
+              padding: 8,
+              borderRadius: 6,
+              fontSize: 13,
+              marginBottom: 10
+            }}>
+              {cancelledSlots.length} service(s) cancelled
+            </div>
+          )}
           <div style={styles.sectionLabel}>SERVICES SUMMARY</div>
           {cart.map((item, idx) => {
-            const bullets   = safeParse(item.bullets, []);
+            const bullets = safeParse(item.bullets, []);
             const lineTotal = (item.cart_price || 0) * (item.qty || 1);
+
+            // 🔥 Check if this item is cancelled
+            const isCancelled = cancelledSlots.some(slot =>
+              item.title.toLowerCase().includes((slot.group || "").toLowerCase())
+            );
+
             return (
-              <div key={item.id || idx} style={styles.itemCard}>
+              <div
+                key={item.id || idx}
+                style={{
+                  ...styles.itemCard,
+                  opacity: isCancelled ? 0.5 : 1,
+                  background: isCancelled ? "#FEF2F2" : undefined,
+                  border: isCancelled ? "1px solid #FCA5A5" : undefined
+                }}
+              >
                 <div style={styles.itemRow}>
                   <div style={styles.itemLeft}>
                     {item.qty > 1 && <span style={styles.qtyBadge}>{item.qty}×</span>}
-                    <span style={styles.itemTitle}>{item.title}</span>
+
+                    <span
+                      style={{
+                        ...styles.itemTitle,
+                        textDecoration: isCancelled ? "line-through" : "none"
+                      }}
+                    >
+                      {item.title}
+                    </span>
+
+                    {isCancelled && (
+                      <span style={{
+                        marginLeft: 8,
+                        fontSize: 12,
+                        color: "#DC2626",
+                        fontWeight: 600
+                      }}>
+                        CANCELLED
+                      </span>
+                    )}
                   </div>
-                  <div style={styles.itemPrice}>₹{lineTotal.toLocaleString("en-IN")}</div>
+
+                  <div
+                    style={{
+                      ...styles.itemPrice,
+                      textDecoration: isCancelled ? "line-through" : "none",
+                      color: isCancelled ? "#9CA3AF" : undefined
+                    }}
+                  >
+                    ₹{lineTotal.toLocaleString("en-IN")}
+                  </div>
                 </div>
-                {bullets.length > 0 && (
+
+                {!isCancelled && bullets.length > 0 && (
                   <ul style={styles.bulletList}>
                     {bullets.map((b, i) => {
                       const text = typeof b === "string" ? b : b?.label || b?.desc || "";
@@ -455,7 +511,7 @@ function SkeletonCard() {
       <div style={{ ...styles.skeletonLine, width: "30%", height: 28, marginBottom: 10 }} />
       <div style={{ ...styles.skeletonLine, width: "80%", height: 11, marginBottom: 6 }} />
       <div style={{ ...styles.skeletonLine, width: "65%", height: 11, marginBottom: 18 }} />
-      <div style={{ ...styles.skeletonLine, width: "100%", height: 1,  marginBottom: 14 }} />
+      <div style={{ ...styles.skeletonLine, width: "100%", height: 1, marginBottom: 14 }} />
       <div style={{ ...styles.skeletonLine, width: "40%", height: 11, marginBottom: 8 }} />
       <div style={{ ...styles.skeletonLine, width: "70%", height: 14 }} />
     </div>
@@ -467,37 +523,37 @@ function SkeletonCard() {
 // ─────────────────────────────────────────────────────────────
 
 export default function BookingPageBody() {
-  const [orders,         setOrders]         = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState(null);
-  const [authUser,       setAuthUser]       = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
   const [availableSlots, setAvailableSlots] = useState(DEFAULT_TIMES);
 
   // Whole-booking cancel
-  const [cancelTarget,  setCancelTarget]  = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
   // Single-slot cancel
-  const [cancelSlotTarget,  setCancelSlotTarget]  = useState(null); // { order, slotKey, slot }
+  const [cancelSlotTarget, setCancelSlotTarget] = useState(null); // { order, slotKey, slot }
   const [cancelSlotLoading, setCancelSlotLoading] = useState(false);
 
   // Reschedule
-  const [rescheduleTarget,  setRescheduleTarget]  = useState(null); // { order, slotKey, slot }
+  const [rescheduleTarget, setRescheduleTarget] = useState(null); // { order, slotKey, slot }
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
 
   // ── Auth + initial load ────────────────────────────────────
   useEffect(() => {
-    const auth  = getAuth();
+    const auth = getAuth();
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setLoading(false); return; }
       setAuthUser(user);
       try {
         const token = await user.getIdToken();
-        const res   = await fetch(`${BASE}/api/orders`, {
+        const res = await fetch(`${BASE}/api/orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json  = await res.json();
+        const json = await res.json();
         setOrders(json.data || []);
       } catch (err) {
         setError("Could not load your bookings. Please try again.");
@@ -517,7 +573,7 @@ export default function BookingPageBody() {
       .then(d => {
         if (d?.slots?.length) setAvailableSlots(d.slots);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [rescheduleTarget]);
 
   // ── Whole booking cancel ───────────────────────────────────
@@ -526,7 +582,7 @@ export default function BookingPageBody() {
     setCancelLoading(true);
     try {
       const token = await authUser.getIdToken();
-      const res   = await fetch(`${BASE}/api/orders/${cancelTarget.razorpay_order_id}/cancel`, {
+      const res = await fetch(`${BASE}/api/orders/${cancelTarget.razorpay_order_id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
@@ -552,10 +608,10 @@ export default function BookingPageBody() {
     setCancelSlotLoading(true);
     try {
       const token = await authUser.getIdToken();
-      const res   = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/cancel-slot`, {
+      const res = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/cancel-slot`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:   JSON.stringify({ slot_key: slotKey }),
+        body: JSON.stringify({ slot_key: slotKey }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -564,9 +620,28 @@ export default function BookingPageBody() {
       // Optimistically mark slot as cancelled in local state
       setOrders(prev => prev.map(o => {
         if (o.id !== order.id) return o;
+
         const newSlots = { ...safeParse(o.slots, {}) };
-        newSlots[slotKey] = { ...newSlots[slotKey], _cancelled: true };
-        return { ...o, slots: newSlots };
+newSlots[slotKey] = { ...newSlots[slotKey], _cancelled: true };
+
+// 🔥 get cancelled slot
+const cancelledSlot = newSlots[slotKey];
+
+// 🔥 find matching cart item
+const matchedItem = safeParse(o.cart, []).find(item =>
+  (item.title || "").toLowerCase().includes((cancelledSlot.group || "").toLowerCase())
+);
+
+// 🔥 calculate actual refund
+const refundAmount = matchedItem
+  ? (matchedItem.cart_price || 0) * (matchedItem.qty || 1)
+  : 0;
+
+return {
+  ...o,
+  slots: newSlots,
+  amount: o.amount - refundAmount
+};
       }));
       setCancelSlotTarget(null);
     } catch (err) {
@@ -596,46 +671,46 @@ export default function BookingPageBody() {
       // If the endpoint isn't deployed yet, falls back to amount-only mode (test mode only).
       let feeOrderId = null;
       try {
-        const token   = await authUser.getIdToken();
-        const feeRes  = await fetch(`${BASE}/api/reschedule-fee/create-order`, {
-          method:  "POST",
+        const token = await authUser.getIdToken();
+        const feeRes = await fetch(`${BASE}/api/reschedule-fee/create-order`, {
+          method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body:    JSON.stringify({ razorpay_order_id: order.razorpay_order_id, slot_key: slotKey }),
+          body: JSON.stringify({ razorpay_order_id: order.razorpay_order_id, slot_key: slotKey }),
         });
         if (feeRes.ok) {
           const feeJson = await feeRes.json();
-          feeOrderId    = feeJson.order?.id || null;
+          feeOrderId = feeJson.order?.id || null;
         }
         // If endpoint missing / error — feeOrderId stays null, RZP opens in amount-only mode
-      } catch (_) {}
+      } catch (_) { }
 
       setRescheduleLoading(false);
 
       // Build RZP config — only pass order_id when we have one
       const rzpConfig = {
-        key:         "rzp_test_SjzsGim4szJZ5y", // placeholder, overridden by window.__RZP_KEY__ or env var
-        amount:      10000,
-        currency:    "INR",
-        name:        "UrbanEase",
+        key: "rzp_test_SjzsGim4szJZ5y", // placeholder, overridden by window.__RZP_KEY__ or env var
+        amount: 10000,
+        currency: "INR",
+        name: "UrbanEase",
         description: "Rescheduling fee (within 24 hrs)",
         prefill: {
-          name:  authUser.displayName || "",
+          name: authUser.displayName || "",
           email: authUser.email || "",
         },
         handler: async (response) => {
           setRescheduleLoading(true);
           try {
             const token = await authUser.getIdToken();
-            const res   = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/reschedule-slot`, {
-              method:  "POST",
+            const res = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/reschedule-slot`, {
+              method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-              body:    JSON.stringify({
-                slot_key:       slotKey,
-                new_date:       newDate,
-                new_time:       newTime,
-                fee_payment_id: response.razorpay_payment_id  || null,
-                fee_order_id:   response.razorpay_order_id    || null,
-                fee_signature:  response.razorpay_signature   || null,
+              body: JSON.stringify({
+                slot_key: slotKey,
+                new_date: newDate,
+                new_time: newTime,
+                fee_payment_id: response.razorpay_payment_id || null,
+                fee_order_id: response.razorpay_order_id || null,
+                fee_signature: response.razorpay_signature || null,
               }),
             });
             if (!res.ok) {
@@ -682,10 +757,10 @@ export default function BookingPageBody() {
     setRescheduleLoading(true);
     try {
       const token = await authUser.getIdToken();
-      const res   = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/reschedule-slot`, {
-        method:  "POST",
+      const res = await fetch(`${BASE}/api/orders/${order.razorpay_order_id}/reschedule-slot`, {
+        method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ slot_key: slotKey, new_date: newDate, new_time: newTime }),
+        body: JSON.stringify({ slot_key: slotKey, new_date: newDate, new_time: newTime }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -956,9 +1031,9 @@ const styles = {
   dateChipActive: {
     border: "1.5px solid #1D4ED8", background: "#EFF6FF",
   },
-  dateChipDay:   { fontSize: 9,  fontWeight: 600, color: "#888", letterSpacing: "0.06em" },
-  dateChipNum:   { fontSize: 16, fontWeight: 800, color: "#111" },
-  dateChipMonth: { fontSize: 9,  fontWeight: 600, color: "#888" },
+  dateChipDay: { fontSize: 9, fontWeight: 600, color: "#888", letterSpacing: "0.06em" },
+  dateChipNum: { fontSize: 16, fontWeight: 800, color: "#111" },
+  dateChipMonth: { fontSize: 9, fontWeight: 600, color: "#888" },
   noSlotsNote: {
     fontSize: 12, color: "#AAA", textAlign: "center",
     padding: "10px 0 6px", marginBottom: 6,
