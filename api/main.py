@@ -557,39 +557,62 @@ async def get_cart_details(request: Request):
 # ─────────────────────────────────────────────
 @app.get("/api/orders")
 async def get_orders(request: Request):
-    payload = await verify_firebase_token(request)
-    firebase_uid = payload["uid"]
+    try:
+        payload = await verify_firebase_token(request)
+        firebase_uid = payload["uid"]
 
-    sql = """
-        SELECT id, razorpay_order_id, razorpay_payment_id, amount, status, created_at,
-               address, slots, cart, quantities
-        FROM orders
-        WHERE firebase_uid = %s
-        ORDER BY created_at DESC
-    """
+        sql = """
+            SELECT id, razorpay_order_id, razorpay_payment_id, amount, status, created_at,
+                   address, slots, cart, quantities
+            FROM orders
+            WHERE firebase_uid = %s
+            ORDER BY created_at DESC
+        """
 
-    rows = query(sql, (firebase_uid,))
+        rows = query(sql, (firebase_uid,))
 
-    orders = []
-    for r in rows:
-        orders.append({
-            "id": r[0],
-            "razorpay_order_id": r[1],
-            "razorpay_payment_id": r[2],
-            "amount": float(r[3]),
-            "status": r[4],
-            "created_at": r[5].isoformat(),
-            "address": json.loads(r[6]),
-            "slots": json.loads(r[7]),
-            "cart": json.loads(r[8]),
-            "quantities": json.loads(r[9]),
-        })
+        def safe_json(val, default):
+            try:
+                return json.loads(val) if val else default
+            except Exception as e:
+                print("❌ JSON parse error:", val, str(e))
+                return default
 
-    return {
-        "status": "success",
-        "count": len(orders),
-        "data": orders
-    }
+        orders = []
+        for r in rows:
+            try:
+                orders.append({
+                    "id": r[0],
+                    "razorpay_order_id": r[1],
+                    "razorpay_payment_id": r[2],
+
+                    # ✅ convert paise → rupees
+                    "amount": float(r[3]) / 100 if r[3] else 0,
+
+                    "status": r[4],
+
+                    # ✅ safe datetime
+                    "created_at": r[5].isoformat() if r[5] else None,
+
+                    # ✅ safe JSON parsing
+                    "address": safe_json(r[6], {}),
+                    "slots": safe_json(r[7], {}),
+                    "cart": safe_json(r[8], []),
+                    "quantities": safe_json(r[9], {}),
+                })
+            except Exception as e:
+                print("❌ Row processing failed:", r, str(e))
+                continue  # skip bad row instead of crashing
+
+        return {
+            "status": "success",
+            "count": len(orders),
+            "data": orders
+        }
+
+    except Exception as e:
+        print("🔥 ORDERS API ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 # ─────────────────────────────────────────────
 #  CACHE INVALIDATION
 # ─────────────────────────────────────────────
