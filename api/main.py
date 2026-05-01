@@ -572,11 +572,19 @@ async def get_orders(request: Request):
         rows = query(sql, (firebase_uid,))
 
         def safe_json(val, default):
-            try:
-                return json.loads(val) if val else default
-            except Exception as e:
-                print("❌ JSON parse error:", val, str(e))
+            if val is None:
                 return default
+            # JSONB columns: psycopg2 already parsed into dict/list
+            if isinstance(val, (dict, list)):
+                return val
+            # TEXT columns: still a raw JSON string
+            if isinstance(val, str):
+                try:
+                    return json.loads(val)
+                except Exception as e:
+                    print("❌ JSON parse error:", repr(val), str(e))
+                    return default
+            return default
 
         orders = []
         for r in rows:
@@ -585,16 +593,9 @@ async def get_orders(request: Request):
                     "id": r[0],
                     "razorpay_order_id": r[1],
                     "razorpay_payment_id": r[2],
-
-                    # ✅ convert paise → rupees
                     "amount": float(r[3]) / 100 if r[3] else 0,
-
                     "status": r[4],
-
-                    # ✅ safe datetime
                     "created_at": r[5].isoformat() if r[5] else None,
-
-                    # ✅ safe JSON parsing
                     "address": safe_json(r[6], {}),
                     "slots": safe_json(r[7], {}),
                     "cart": safe_json(r[8], []),
@@ -602,7 +603,7 @@ async def get_orders(request: Request):
                 })
             except Exception as e:
                 print("❌ Row processing failed:", r, str(e))
-                continue  # skip bad row instead of crashing
+                continue
 
         return {
             "status": "success",
