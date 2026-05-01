@@ -480,7 +480,7 @@ async def assign_providers_cron():
                     UPDATE orders
                     SET slots = %s
                     WHERE id = %s
-                """, (json.dumps(slots_map), order_id))
+                """, (slots_map, order_id))
 
         return {"status": "success", "message": "Providers assigned"}
 
