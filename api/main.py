@@ -748,7 +748,7 @@ async def cancel_order(razorpay_order_id: str, request: Request):
             WHERE id = %s
             RETURNING id
         """
-        query(update_sql, (refund_id, order_db_id))
+        execute(update_sql, (refund_id, order_db_id))
 
         return {
             "status": "success",
