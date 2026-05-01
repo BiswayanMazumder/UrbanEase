@@ -422,7 +422,71 @@ async def cancel_slot(razorpay_order_id: str, request: Request):
         "refund_paise": refund_amount,
         "order_status": new_order_status,
     }
- 
+@app.get("/api/cron/assign-providers")
+async def assign_providers_cron():
+    try:
+        now = datetime.utcnow()
+
+        rows = query("""
+            SELECT id, slots
+            FROM orders
+            WHERE status != 'cancelled'
+        """)
+
+        for r in rows:
+            order_id = r[0]
+            slots_map = _safe_json(r[1], {})
+
+            updated = False
+
+            for key, slot in slots_map.items():
+
+                # ❌ skip cancelled
+                if slot.get("_cancelled"):
+                    continue
+
+                # ✅ ensure provider exists
+                if "provider" not in slot:
+                    slot["provider"] = {
+                        "name": None,
+                        "phone": None,
+                        "assigned_at": None
+                    }
+
+                # ❌ skip if already assigned
+                if slot["provider"]["phone"]:
+                    continue
+
+                # ⏱ calculate time
+                try:
+                    slot_dt = _slot_datetime(slot)
+                except Exception:
+                    continue
+
+                hours = (slot_dt - now).total_seconds() / 3600
+
+                # 🎯 ASSIGN if within 24 hrs
+                if 0 < hours <= 24:
+                    slot["provider"] = {
+                        "name": "UrbanEase Pro",
+                        "phone": "+919999999999",   # replace later
+                        "assigned_at": now.isoformat()
+                    }
+                    updated = True
+
+            # 💾 save only if changed
+            if updated:
+                execute("""
+                    UPDATE orders
+                    SET slots = %s
+                    WHERE id = %s
+                """, (json.dumps(slots_map), order_id))
+
+        return {"status": "success", "message": "Providers assigned"}
+
+    except Exception as e:
+        print("❌ CRON ERROR:", str(e))
+        return {"status": "error", "message": str(e)}
  
 # ─────────────────────────────────────────────────────────────────────────────
 #  POST /api/orders/{razorpay_order_id}/reschedule-slot

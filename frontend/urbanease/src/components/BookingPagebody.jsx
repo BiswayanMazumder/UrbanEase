@@ -308,6 +308,9 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
           {isCancelled && (
             <span style={styles.slotCancelledBadge}>Cancelled</span>
           )}
+          {!isCancelled && isPast && (
+            <span style={styles.slotCompletedBadge}>Service Availed</span>
+          )}
           {!isCancelled && !cancellable && !isPast && hours > 0 && hours <= 24 && (
             <span style={styles.slotWithin24Badge}>⏳ Within 24 hrs</span>
           )}
@@ -320,16 +323,29 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
       {/* Per-slot action buttons */}
       {!isCancelled && !isPast && (
         <div style={styles.slotActions}>
+
+          {/* ✅ NEW: Contact button (within 24 hrs) */}
+          {hours > 0 && hours <= 24 && slot.provider?.phone && (
+            <button
+              style={styles.btnContact}
+              onClick={() => window.open(`tel:${slot.provider.phone}`)}
+            >
+              Call {slot.provider.name || "Provider"}
+            </button>
+          )}
+
           {reschedulable && (
             <button style={styles.btnReschedule} onClick={() => onRescheduleSlot(slotKey, slot)}>
               Reschedule
             </button>
           )}
+
           {cancellable && (
             <button style={styles.btnCancelSlot} onClick={() => onCancelSlot(slotKey, slot)}>
               Cancel
             </button>
           )}
+
         </div>
       )}
     </div>
@@ -622,26 +638,26 @@ export default function BookingPageBody() {
         if (o.id !== order.id) return o;
 
         const newSlots = { ...safeParse(o.slots, {}) };
-newSlots[slotKey] = { ...newSlots[slotKey], _cancelled: true };
+        newSlots[slotKey] = { ...newSlots[slotKey], _cancelled: true };
 
-// 🔥 get cancelled slot
-const cancelledSlot = newSlots[slotKey];
+        // 🔥 get cancelled slot
+        const cancelledSlot = newSlots[slotKey];
 
-// 🔥 find matching cart item
-const matchedItem = safeParse(o.cart, []).find(item =>
-  (item.title || "").toLowerCase().includes((cancelledSlot.group || "").toLowerCase())
-);
+        // 🔥 find matching cart item
+        const matchedItem = safeParse(o.cart, []).find(item =>
+          (item.title || "").toLowerCase().includes((cancelledSlot.group || "").toLowerCase())
+        );
 
-// 🔥 calculate actual refund
-const refundAmount = matchedItem
-  ? (matchedItem.cart_price || 0) * (matchedItem.qty || 1)
-  : 0;
+        // 🔥 calculate actual refund
+        const refundAmount = matchedItem
+          ? (matchedItem.cart_price || 0) * (matchedItem.qty || 1)
+          : 0;
 
-return {
-  ...o,
-  slots: newSlots,
-  amount: o.amount - refundAmount
-};
+        return {
+          ...o,
+          slots: newSlots,
+          amount: o.amount - refundAmount
+        };
       }));
       setCancelSlotTarget(null);
     } catch (err) {
@@ -906,6 +922,16 @@ const styles = {
     display: "inline-block", marginTop: 4, fontSize: 10, fontWeight: 700,
     background: "#F3F4F6", color: "#9CA3AF", borderRadius: 6, padding: "2px 7px",
   },
+  slotCompletedBadge: {
+    display: "inline-block",
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: 700,
+    background: "#E6F9F0",
+    color: "#059669",
+    borderRadius: 6,
+    padding: "2px 7px",
+  },
   slotWithin24Badge: {
     display: "inline-block", marginTop: 4, fontSize: 10, fontWeight: 600,
     background: "#FEF9C3", color: "#A16207", borderRadius: 6, padding: "2px 7px",
@@ -928,7 +954,17 @@ const styles = {
     background: "#FFF5F5", color: "#DC2626",
     padding: "5px 10px", whiteSpace: "nowrap",
   },
-
+  btnContact: {
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "1.5px solid #BBF7D0",
+    borderRadius: 8,
+    background: "#F0FDF4",
+    color: "#059669",
+    padding: "5px 10px",
+    whiteSpace: "nowrap",
+  },
   itemCard: { background: "#F9F9F8", borderRadius: 10, padding: "10px 12px", marginBottom: 8 },
   itemRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
   itemLeft: { display: "flex", alignItems: "flex-start", gap: 6, flex: 1 },

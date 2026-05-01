@@ -1,5 +1,14 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+  "builds": [
+    { "src": "api/main.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/main.py" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/assign-providers",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }
