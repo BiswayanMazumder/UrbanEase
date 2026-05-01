@@ -324,7 +324,6 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
       {!isCancelled && !isPast && (
         <div style={styles.slotActions}>
 
-          {/* ✅ NEW: Contact button (within 24 hrs) */}
           {hours > 0 && hours <= 24 && slot.provider?.phone && (
             <button
               style={styles.btnContact}
@@ -336,7 +335,7 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
 
           {reschedulable && (
             <button style={styles.btnReschedule} onClick={() => onRescheduleSlot(slotKey, slot)}>
-              Reschedule
+              Reschedul
             </button>
           )}
 
