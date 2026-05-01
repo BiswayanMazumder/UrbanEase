@@ -595,10 +595,10 @@ async def get_orders(request: Request):
                     "created_at": r[5].isoformat() if r[5] else None,
 
                     # ✅ safe JSON parsing
-                    "address": safe_json(r[8], {}),
-                    "slots": safe_json(r[9], {}),
-                    "cart": safe_json(r[10], []),
-                    "quantities": safe_json(r[11], {}),
+                    "address": safe_json(r[6], {}),
+                    "slots": safe_json(r[7], {}),
+                    "cart": safe_json(r[8], []),
+                    "quantities": safe_json(r[9], {}),
                 })
             except Exception as e:
                 print("❌ Row processing failed:", r, str(e))
