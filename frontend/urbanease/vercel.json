@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/cron/assign-providers",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
