@@ -627,37 +627,40 @@ razorpay_client = razorpay.Client(auth=(
 ))
 
 
-@app.post("/api/orders/{order_id}/cancel")
-async def cancel_order(order_id: str, request: Request):
+@app.post("/api/orders/{razorpay_order_id}/cancel")
+async def cancel_order(razorpay_order_id: str, request: Request):
     try:
+        # 🔐 Auth
         payload = await verify_firebase_token(request)
         firebase_uid = payload["uid"]
 
         # 🧾 Fetch order
         sql = """
-            SELECT id, status, slots, razorpay_payment_id, amount
+            SELECT id, status, slots, razorpay_payment_id, amount, refund_id
             FROM orders
             WHERE razorpay_order_id = %s AND firebase_uid = %s
         """
-        rows = query(sql, (order_id, firebase_uid))
+        rows = query(sql, (razorpay_order_id, firebase_uid))
 
         if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
 
         r = rows[0]
+        order_db_id = r[0]
         status = r[1]
         slots_raw = r[2]
         payment_id = r[3]
-        amount = r[4]  # in paise
+        amount = r[4]  # MUST be in paise
+        existing_refund = r[5]
 
-        # ❌ Already cancelled
+        # 🛑 Already cancelled → idempotent safe return
         if status == "cancelled":
             return {
                 "status": "success",
                 "message": "Order already cancelled"
             }
 
-        # 🔍 Safe JSON
+        # 🔍 Parse slots
         def safe_json(val, default):
             if val is None:
                 return default
@@ -676,15 +679,15 @@ async def cancel_order(order_id: str, request: Request):
         if not slot_list:
             raise HTTPException(status_code=400, detail="No slots found")
 
-        # ⏱ 24hr rule
+        # ⏱ 24 hr rule
         def convert_to_24(time_str):
             time, modifier = time_str.split(" ")
-            hours, minutes = map(int, time.split(":"))
-            if modifier == "PM" and hours != 12:
-                hours += 12
-            if modifier == "AM" and hours == 12:
-                hours = 0
-            return f"{hours:02d}:{minutes:02d}"
+            h, m = map(int, time.split(":"))
+            if modifier == "PM" and h != 12:
+                h += 12
+            if modifier == "AM" and h == 12:
+                h = 0
+            return f"{h:02d}:{m:02d}"
 
         now = datetime.utcnow()
 
@@ -699,20 +702,42 @@ async def cancel_order(order_id: str, request: Request):
                 detail="Cannot cancel within 24 hours of appointment"
             )
 
-        # 💸 REFUND (only if payment exists)
+        # 💸 REFUND
         refund_id = None
-        if payment_id:
+
+        if payment_id and not existing_refund:
             try:
-                refund = razorpay_client.payment.refund(payment_id, {
-                    "amount": amount  # full refund
-                })
+                # ✅ Validate inputs
+                if not payment_id.startswith("pay_"):
+                    raise Exception(f"Invalid payment_id: {payment_id}")
+
+                if not amount or int(amount) <= 0:
+                    raise Exception(f"Invalid amount: {amount}")
+
+                amount = int(amount)
+
+                print("💸 Refunding:", payment_id, amount)
+
+                # 🔍 Optional: verify payment exists
+                payment = razorpay_client.payment.fetch(payment_id)
+                if payment["status"] != "captured":
+                    raise Exception("Payment not captured, cannot refund")
+
+                refund = razorpay_client.payment.refund(
+                    payment_id,
+                    {
+                        "amount": amount
+                    }
+                )
+
                 refund_id = refund.get("id")
-            except Exception as refund_error:
-                    print("❌ Refund failed FULL:", repr(refund_error))
-                    raise HTTPException(
-                        status_code=500,
-                        detail=str(refund_error)   # 👈 expose actual error
-        )
+
+            except Exception as e:
+                print("❌ Refund error:", repr(e))
+
+                # 🚨 DO NOT block cancellation
+                # Just mark refund failed / pending
+                refund_id = None
 
         # 🧾 Update DB
         update_sql = """
@@ -723,21 +748,18 @@ async def cancel_order(order_id: str, request: Request):
             WHERE id = %s
             RETURNING id
         """
-        updated = query(update_sql, (refund_id, order_id))
-
-        if not updated:
-            raise HTTPException(status_code=500, detail="Failed to cancel order")
+        query(update_sql, (refund_id, order_db_id))
 
         return {
             "status": "success",
-            "message": "Order cancelled and refunded",
+            "message": "Order cancelled",
             "refund_id": refund_id
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        print("🔥 CANCEL+REFUND ERROR:", str(e))
+        print("🔥 CANCEL ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 # ─────────────────────────────────────────────
 #  CACHE INVALIDATION
