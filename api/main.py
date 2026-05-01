@@ -10,6 +10,7 @@ import hmac
 import hashlib
 import asyncio
 import time
+from psycopg2.extras import Json
 import razorpay
 from datetime import datetime
 from typing import Any, Optional
@@ -480,7 +481,7 @@ async def assign_providers_cron():
                     UPDATE orders
                     SET slots = %s
                     WHERE id = %s
-                """, (slots_map, order_id))
+                """, (Json(slots_map), order_id))
 
         return {"status": "success", "message": "Providers assigned"}
 
