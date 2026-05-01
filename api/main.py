@@ -548,6 +548,81 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
         "new_date":    new_date,
         "new_time":    new_time,
     }
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+#  DB MIGRATION — run once
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#  ALTER TABLE orders
+#    ADD COLUMN IF NOT EXISTS cancelled_at        TIMESTAMPTZ,
+#    ADD COLUMN IF NOT EXISTS refund_id            TEXT,
+#    ADD COLUMN IF NOT EXISTS reschedule_fee_paid  BOOLEAN DEFAULT FALSE;
+#
+#  -- Make sure slots is JSONB (if it was TEXT before):
+#  ALTER TABLE orders ALTER COLUMN slots TYPE JSONB USING slots::jsonb;
+#
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+#  POST /api/reschedule-fee/create-order
+#
+#  Creates a Razorpay order for the Rs.100 rescheduling fee.
+#  The frontend opens RZP checkout with this order_id, then on success
+#  calls POST /api/orders/{id}/reschedule-slot with the payment proof.
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+@app.post("/api/reschedule-fee/create-order")
+async def create_reschedule_fee_order(request: Request):
+    payload      = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+ 
+    body              = await request.json()
+    razorpay_order_id = body.get("razorpay_order_id", "")
+    slot_key          = str(body.get("slot_key", ""))
+ 
+    if not razorpay_order_id:
+        raise HTTPException(status_code=400, detail="razorpay_order_id is required")
+ 
+    # Confirm order belongs to this user and slot is still within-24-hr window
+    rows = query(
+        "SELECT id, slots FROM orders WHERE razorpay_order_id = %s AND firebase_uid = %s",
+        (razorpay_order_id, firebase_uid),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Order not found")
+ 
+    slots_map = _safe_json(rows[0][1], {})
+    slot = slots_map.get(slot_key)
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    if slot.get("_cancelled"):
+        raise HTTPException(status_code=400, detail="Slot is already cancelled")
+ 
+    hours = _hours_until(slot)
+    if hours <= 0:
+        raise HTTPException(status_code=400, detail="Cannot reschedule a past slot")
+    # Fee applies only within 24 hrs — but we create the order regardless,
+    # caller already checked chargeability on the frontend.
+ 
+    try:
+        fee_order = razorpay_client.order.create({
+            "amount":          RESCHEDULE_FEE_PAISE,   # 10000 paise = Rs.100
+            "currency":        "INR",
+            "payment_capture": 1,
+            "notes": {
+                "type":              "reschedule_fee",
+                "original_order_id": razorpay_order_id,
+                "slot_key":          slot_key,
+                "firebase_uid":      firebase_uid,
+            },
+        })
+    except Exception as e:
+        print(f"[reschedule-fee] Razorpay order creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create fee order")
+ 
+    return {"status": "success", "order": fee_order}
 def delete_sessions(firebase_uid: str):
     conn = get_conn()
     try:
