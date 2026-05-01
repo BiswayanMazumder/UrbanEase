@@ -292,16 +292,26 @@ def delete_sessions(firebase_uid: str):
 # ─────────────────────────────────────────────
 #  DB query helpers
 # ─────────────────────────────────────────────
-def query(sql: str, params=()) -> list[tuple]:
-    conn = get_conn()
+def query(sql, params=None):
+    conn = get_connection()
     try:
-        cur = conn.cursor()
-        cur.execute(sql, params)
-        rows = cur.fetchall()
-        cur.close()
-        return rows
+        with conn:  # ✅ AUTO COMMIT
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+
+                # SELECT
+                if cur.description:
+                    return cur.fetchall()
+
+                # UPDATE/INSERT/DELETE
+                return cur.rowcount
+
+    except Exception as e:
+        print("❌ DB ERROR:", str(e))
+        raise
+
     finally:
-        release_conn(conn)
+        conn.close()
 
 def execute(sql: str, params=()):
     conn = get_conn()
