@@ -335,7 +335,7 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
 
           {reschedulable && (
             <button style={styles.btnReschedule} onClick={() => onRescheduleSlot(slotKey, slot)}>
-              Reschedul
+              Reschedule
             </button>
           )}
 
