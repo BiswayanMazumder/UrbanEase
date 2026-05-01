@@ -614,6 +614,131 @@ async def get_orders(request: Request):
     except Exception as e:
         print("🔥 ORDERS API ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+from fastapi import HTTPException, Request
+from datetime import datetime, timedelta
+import json
+import razorpay
+import os
+
+# 🔐 Init Razorpay client
+razorpay_client = razorpay.Client(auth=(
+    os.getenv("RAZORPAY_KEY_ID"),
+    os.getenv("RAZORPAY_KEY_SECRET")
+))
+
+
+@app.post("/api/orders/{order_id}/cancel")
+async def cancel_order(order_id: int, request: Request):
+    try:
+        payload = await verify_firebase_token(request)
+        firebase_uid = payload["uid"]
+
+        # 🧾 Fetch order
+        sql = """
+            SELECT id, status, slots, razorpay_payment_id, amount
+            FROM orders
+            WHERE id = %s AND firebase_uid = %s
+        """
+        rows = query(sql, (order_id, firebase_uid))
+
+        if not rows:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        r = rows[0]
+        status = r[1]
+        slots_raw = r[2]
+        payment_id = r[3]
+        amount = r[4]  # in paise
+
+        # ❌ Already cancelled
+        if status == "cancelled":
+            return {
+                "status": "success",
+                "message": "Order already cancelled"
+            }
+
+        # 🔍 Safe JSON
+        def safe_json(val, default):
+            if val is None:
+                return default
+            if isinstance(val, (dict, list)):
+                return val
+            if isinstance(val, str):
+                try:
+                    return json.loads(val)
+                except:
+                    return default
+            return default
+
+        slots_map = safe_json(slots_raw, {})
+        slot_list = list(slots_map.values())
+
+        if not slot_list:
+            raise HTTPException(status_code=400, detail="No slots found")
+
+        # ⏱ 24hr rule
+        def convert_to_24(time_str):
+            time, modifier = time_str.split(" ")
+            hours, minutes = map(int, time.split(":"))
+            if modifier == "PM" and hours != 12:
+                hours += 12
+            if modifier == "AM" and hours == 12:
+                hours = 0
+            return f"{hours:02d}:{minutes:02d}"
+
+        now = datetime.utcnow()
+
+        earliest = min([
+            datetime.fromisoformat(f"{s['date']}T{convert_to_24(s['time'])}")
+            for s in slot_list
+        ])
+
+        if earliest - now <= timedelta(hours=24):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot cancel within 24 hours of appointment"
+            )
+
+        # 💸 REFUND (only if payment exists)
+        refund_id = None
+        if payment_id:
+            try:
+                refund = razorpay_client.payment.refund(payment_id, {
+                    "amount": amount  # full refund
+                })
+                refund_id = refund.get("id")
+            except Exception as refund_error:
+                print("❌ Refund failed:", str(refund_error))
+                raise HTTPException(
+                    status_code=500,
+                    detail="Cancellation failed during refund. Try again."
+                )
+
+        # 🧾 Update DB
+        update_sql = """
+            UPDATE orders
+            SET status = 'cancelled',
+                refund_id = %s,
+                cancelled_at = NOW()
+            WHERE id = %s
+            RETURNING id
+        """
+        updated = query(update_sql, (refund_id, order_id))
+
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to cancel order")
+
+        return {
+            "status": "success",
+            "message": "Order cancelled and refunded",
+            "refund_id": refund_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("🔥 CANCEL+REFUND ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 # ─────────────────────────────────────────────
 #  CACHE INVALIDATION
 # ─────────────────────────────────────────────
