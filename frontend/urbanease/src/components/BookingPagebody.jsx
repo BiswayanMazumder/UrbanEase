@@ -325,7 +325,7 @@ function SlotRow({ slotKey, slot, orderStatus, onCancelSlot, onRescheduleSlot })
         <div style={styles.slotActions}>
 
           {/* ✅ NEW: Contact button (within 24 hrs) */}
-          {hours > 0 && hours <= 24 && slot.provider?.phone && (
+          {slot.provider?.phone && (
             <button
               style={styles.btnContact}
               onClick={() => window.open(`tel:${slot.provider.phone}`)}
