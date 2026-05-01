@@ -708,11 +708,11 @@ async def cancel_order(order_id: str, request: Request):
                 })
                 refund_id = refund.get("id")
             except Exception as refund_error:
-                print("❌ Refund failed:", str(refund_error))
-                raise HTTPException(
-                    status_code=500,
-                    detail="Cancellation failed during refund. Try again."
-                )
+                    print("❌ Refund failed FULL:", repr(refund_error))
+                    raise HTTPException(
+                        status_code=500,
+                        detail=str(refund_error)   # 👈 expose actual error
+        )
 
         # 🧾 Update DB
         update_sql = """
