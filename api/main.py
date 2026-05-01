@@ -396,23 +396,24 @@ async def cancel_slot(razorpay_order_id: str, request: Request):
     remaining_active = sum(1 for s in slots_map.values() if not s.get("_cancelled"))
     new_order_status = "cancelled" if remaining_active == 0 else status
  
-    execute(
-        """
+    new_amount = total_amount - refund_amount
+
+    execute("""
         UPDATE orders
         SET slots        = %s::jsonb,
             status       = %s,
+            amount       = %s,
             refund_id    = COALESCE(%s, refund_id),
             cancelled_at = CASE WHEN %s = 'cancelled' THEN NOW() ELSE cancelled_at END
         WHERE id = %s
-        """,
-        (
-            json.dumps(slots_map),
-            new_order_status,
-            new_refund_id,
-            new_order_status,
-            order_db_id,
-        ),
-    )
+    """, (
+        json.dumps(slots_map),
+        new_order_status,
+        new_amount,              
+        new_refund_id,
+        new_order_status,
+        order_db_id,
+    ))
  
     return {
         "status":       "success",
