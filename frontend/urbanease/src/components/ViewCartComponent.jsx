@@ -908,7 +908,7 @@ const ViewCartComponent = () => {
     const order = data.order;
 
     const options = {
-      key: "rzp_test_SjdYfXttqUz1tz",
+      key: "rzp_test_SjzsGim4szJZ5y",
       amount: order.amount,
       currency: "INR",
       order_id: order.id,
