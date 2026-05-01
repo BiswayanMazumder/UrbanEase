@@ -553,6 +553,40 @@ async def get_cart_details(request: Request):
     }
 
 # ─────────────────────────────────────────────
+#  Fetch Orders
+# ─────────────────────────────────────────────
+@app.get("/api/orders")
+async def get_orders(request: Request):
+    payload = await verify_firebase_token(request)
+    firebase_uid = payload["uid"]
+
+    sql = """
+        SELECT id, razorpay_order_id, razorpay_payment_id, amount, status, created_at
+        FROM orders
+        WHERE firebase_uid = %s
+        ORDER BY created_at DESC
+    """
+
+    rows = query(sql, (firebase_uid,))
+
+    orders = []
+    for r in rows:
+        orders.append({
+            "id": r[0],
+            "amount": float(r[1]),
+            "created_at": r[2].isoformat(),
+            "address": json.loads(r[3]),
+            "slots": json.loads(r[4]),
+            "cart": json.loads(r[5]),
+            "quantities": json.loads(r[6]),
+        })
+
+    return {
+        "status": "success",
+        "count": len(orders),
+        "data": orders
+    }
+# ─────────────────────────────────────────────
 #  CACHE INVALIDATION
 # ─────────────────────────────────────────────
 @app.post("/api/admin/cache/invalidate")
