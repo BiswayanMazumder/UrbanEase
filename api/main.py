@@ -628,7 +628,7 @@ razorpay_client = razorpay.Client(auth=(
 
 
 @app.post("/api/orders/{order_id}/cancel")
-async def cancel_order(order_id: int, request: Request):
+async def cancel_order(order_id: str, request: Request):
     try:
         payload = await verify_firebase_token(request)
         firebase_uid = payload["uid"]
@@ -637,7 +637,7 @@ async def cancel_order(order_id: int, request: Request):
         sql = """
             SELECT id, status, slots, razorpay_payment_id, amount
             FROM orders
-            WHERE id = %s AND firebase_uid = %s
+            WHERE razorpay_order_id = %s AND firebase_uid = %s
         """
         rows = query(sql, (order_id, firebase_uid))
 
