@@ -174,7 +174,15 @@ const SearchIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="n
 const HistIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4.95" /></svg>;
 const LocIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6a4de8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" /></svg>;
 const TickIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
-
+const UC = {
+  purple: "#6a4de8",
+  purpleLight: "#f4f1ff",
+  border: "#e6e6e6",
+  text: "#1a1a1a",
+  subText: "#666",
+  disabled: "#bdbdbd",
+  bg: "#ffffff"
+};
 const GoogleBadge = () => (
   <span style={{ fontSize: 11 }}>
     <span style={{ color: "#aaa" }}>powered by </span>
@@ -452,91 +460,112 @@ function SavedAddressModal({ open, onClose, addresses, loading, onAddNew, onSele
 ═══════════════════════════════════════════════════════════ */
 function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
   const [dates, setDates] = useState([]);
-  const [allTimes, setAllTimes] = useState([]); // full list from API
-  const [times, setTimes] = useState([]);        // filtered list shown to user
-  const [services, setServices] = useState([]);
-  const [durationLabel, setDurationLabel] = useState("");
+  const [allTimes, setAllTimes] = useState([]);
+  const [times, setTimes] = useState([]);
   const [selectedDate, setSelectedDate] = useState(0);
   const [selectedTime, setSelectedTime] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Helper: given the selected date index and all times, return only valid times
+  // ✅ Filter slots
   const filterTimes = (dateIndex, dateList, timeList) => {
-    if (!dateList.length) return timeList;
-    const selectedDateStr = dateList[dateIndex]?.date;
-    if (!selectedDateStr) return timeList;
+    if (!Array.isArray(timeList)) return [];
 
+    const selectedDateStr = dateList[dateIndex]?.date;
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
 
-    if (selectedDateStr !== todayStr) {
-      // Future date — show all slots
-      return timeList;
-    }
+    return timeList.filter((time) => {
+      // future dates → allow all
+      if (selectedDateStr !== todayStr) return true;
 
-    // Today — filter out slots within the next 60 minutes
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    return timeList.filter((t) => {
-      const slotMins = parseTimeToMins(t);
+      // today → filter past slots
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const slotMins = parseTimeToMins(time);
+
       return slotMins !== -1 && slotMins > nowMins + 60;
     });
   };
 
+  // ✅ Load initial dates + slots
   useEffect(() => {
-    if (!open || !groupLabel) return;
+    if (!open) return;
+
     setLoading(true);
     setError("");
     setSelectedDate(0);
     setSelectedTime(null);
-    setServices([]);
-    setDates([]);
-    setAllTimes([]);
-    setTimes([]);
+
+    const nextDates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      return {
+        date: d.toISOString().split("T")[0],
+        day: DAY_ABBR[d.getDay() === 0 ? 6 : d.getDay() - 1],
+        num: d.getDate(),
+        month: MONTH_ABBR[d.getMonth()],
+      };
+    });
+
+    setDates(nextDates);
 
     (async () => {
       try {
-        const token = await getToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${BASE}/api/slots?group=${encodeURIComponent(groupLabel)}`, { headers });
+        const res = await fetch(`${BASE}/api/slots?date=${nextDates[0].date}`);
         const data = await res.json();
 
-        if (data.status === "success") {
-          const now = new Date();
-          const todayStr = now.toISOString().split("T")[0];
+        const rawSlots = data.slots || [];
 
-          // ✅ Filter out past dates
-          const futureDates = (data.dates || []).filter((d) => d.date >= todayStr);
-
-          const rawTimes = data.slots || [];
-          setAllTimes(rawTimes);
-          setDates(futureDates);
-          setDurationLabel(data.duration_label || "");
-          setServices(data.services || []);
-
-          // ✅ Filter times for first available date (which may be today)
-          setTimes(filterTimes(0, futureDates, rawTimes));
-        } else {
-          setError("Could not load slots. Please try again.");
-        }
-      } catch (e) {
-        console.error(e);
-        setError("Network error. Please try again.");
+        setAllTimes(rawSlots);
+        setTimes(filterTimes(0, nextDates, rawSlots));
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load slots");
       } finally {
         setLoading(false);
       }
     })();
-  }, [open, groupLabel]);
+  }, [open]);
 
-  // ✅ When user switches date, re-filter times and clear selected time
-  const handleSelectDate = (index) => {
-    setSelectedDate(index);
-    setSelectedTime(null);
-    setTimes(filterTimes(index, dates, allTimes));
-  };
+  // ✅ Fetch slots on date change
+  useEffect(() => {
+    if (!dates.length) return;
+
+    const selectedDateStr = dates[selectedDate]?.date;
+    if (!selectedDateStr) return;
+
+    fetch(`${BASE}/api/slots?date=${selectedDateStr}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const rawSlots = data.slots || [];
+        setAllTimes(rawSlots);
+        setTimes(filterTimes(selectedDate, dates, rawSlots));
+      })
+      .catch(() => setTimes([]));
+  }, [selectedDate, dates]);
+
+  // ✅ Auto refresh (every 30 sec)
+  useEffect(() => {
+    if (!open || !dates.length) return;
+
+    const interval = setInterval(() => {
+      const selectedDateStr = dates[selectedDate]?.date;
+
+      fetch(`${BASE}/api/slots?date=${selectedDateStr}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const rawSlots = data.slots || [];
+          setAllTimes(rawSlots);
+          setTimes(filterTimes(selectedDate, dates, rawSlots));
+        })
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [open, selectedDate, dates]);
 
   const handleConfirm = () => {
     if (!selectedTime || !dates[selectedDate]) return;
+
     onConfirm({
       group: groupLabel,
       date: dates[selectedDate].date,
@@ -546,125 +575,149 @@ function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
       time: selectedTime,
       label: fmtSlotLabel(dates[selectedDate].date, selectedTime),
     });
+
     onClose();
   };
 
   return (
     <AnimatedModal open={open} onClose={onClose}>
-      <div style={{ background: "white", borderRadius: 14, width: 520, maxWidth: "93vw", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,.35)" }}>
-
-        {/* Header */}
-        <div style={{ padding: "24px 28px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>{groupLabel}</p>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #ddd", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><CloseIcon /></button>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          width: 520,
+          maxWidth: "95vw",
+          overflow: "hidden",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.1)"
+        }}
+      >
+        {/* HEADER - Fixed missing closing tags from image_97cc58.png */}
+        <div style={{ padding: "24px 24px 12px" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: UC.text }}>
+            {groupLabel}
           </div>
-          <div style={{ height: 1, background: "#eee", margin: "18px 0 0" }} />
+
+          <div style={{ marginTop: 6, fontSize: 14, color: UC.subText }}>
+            When should the professional arrive?
+          </div>
+
+          <div style={{ fontSize: 13, color: UC.subText }}>
+            Service will take approx. 60 mins
+          </div>
         </div>
 
-        <div style={{ padding: "20px 28px 24px", maxHeight: "70vh", overflowY: "auto" }}>
+        <div style={{ height: 1, background: "#eee" }} />
+
+        {/* BODY */}
+        <div style={{ padding: "16px 0" }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa" }}>
-              <div style={{ width: 28, height: 28, border: "3px solid #e0e0e0", borderTopColor: "#6a4de8", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} />
-              Loading slots…
-            </div>
+            <p>Loading...</p>
           ) : error ? (
-            <p style={{ textAlign: "center", color: "#e53935", padding: "24px 0" }}>{error}</p>
-          ) : dates.length === 0 ? (
-            <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>No available slots at this time.</p>
+            <p style={{ color: "red" }}>{error}</p>
           ) : (
             <>
-              {/* Services from cart */}
-              {services.length > 0 && (
-                <div style={{ background: "#f9f7ff", borderRadius: 10, padding: "14px 16px", marginBottom: 20, border: "1px solid #e8e2ff" }}>
-                  <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#6a4de8", textTransform: "uppercase", letterSpacing: 0.6 }}>
-                    Services included
-                  </p>
-                  {services.map((svc, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderTop: i > 0 ? "1px solid #ede8ff" : "none" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <TickIcon />
-                        <span style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 500 }}>{svc.title}</span>
-                      </div>
-                      {svc.duration && (
-                        <span style={{ fontSize: 12, color: "#888", flexShrink: 0, marginLeft: 8 }}>{svc.duration}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* DATE STRIP */}
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 24px 16px" }}>
+                {dates.map((d, i) => {
+                  const active = i === selectedDate;
 
-              {/* Arrival question */}
-              <p style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 600, color: "#1a1a1a" }}>
-                When should the professional arrive?
-              </p>
-              <p style={{ margin: "0 0 18px", fontSize: 13, color: "#666" }}>
-                Service will take approx.{" "}
-                <strong style={{ color: "#1a1a1a" }}>{durationLabel || "60 mins"}</strong>
-              </p>
-
-              {/* Date strip */}
-              <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6, marginBottom: 24 }}>
-                {dates.map((d, i) => (
-                  <button
-                    key={d.date}
-                    onClick={() => handleSelectDate(i)}
-                    style={{
-                      flexShrink: 0, minWidth: 64, paddingTop: 10, paddingBottom: 10,
-                      borderRadius: 10, border: "1.5px solid",
-                      borderColor: i === selectedDate ? "#6a4de8" : "#ddd",
-                      background: i === selectedDate ? "#f3f0ff" : "white",
-                      cursor: "pointer", textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: 12, color: i === selectedDate ? "#6a4de8" : "#888", fontWeight: 500, marginBottom: 4 }}>{d.day}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: i === selectedDate ? "#6a4de8" : "#1a1a1a" }}>{d.num}</div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Time grid */}
-              <p style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 600, color: "#1a1a1a" }}>
-                Select start time of service
-              </p>
-              {times.length === 0 ? (
-                <p style={{ fontSize: 14, color: "#aaa", textAlign: "center", padding: "12px 0" }}>
-                  No more slots available for today. Please select another date.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {times.map((t) => (
+                  return (
                     <button
-                      key={t}
-                      onClick={() => setSelectedTime(t)}
+                      key={d.date}
+                      onClick={() => {
+                        setSelectedDate(i);
+                        setSelectedTime(null);
+                      }}
                       style={{
-                        padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer",
-                        border: "1.5px solid",
-                        borderColor: t === selectedTime ? "#6a4de8" : "#ddd",
-                        background: t === selectedTime ? "#f3f0ff" : "white",
-                        color: t === selectedTime ? "#6a4de8" : "#1a1a1a",
+                        minWidth: 64,
+                        height: 72,
+                        borderRadius: 12,
+                        border: active ? `2px solid ${UC.purple}` : `1px solid ${UC.border}`,
+                        background: active ? UC.purpleLight : UC.bg,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease"
                       }}
                     >
-                      {t}
+                      <div style={{ fontSize: 12, color: UC.subText }}>{d.day}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: UC.text }}>
+                        {d.num}
+                      </div>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+              
+              <div style={{ padding: "20px 24px 10px" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: UC.text }}>
+                  Select start time of service
                 </div>
-              )}
+              </div>
+
+              {/* TIME GRID */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, padding: "0 24px 24px" }}>
+
+                {times.length === 0 ? (
+                  <div style={{ padding: "20px 0", color: UC.subText, fontSize: 14 }}>
+                    No more slots available for today. Please select another date.
+                  </div>
+                ) : (
+                  times.map((time) => {
+                    const selected = selectedTime === time;
+
+                    return (
+                      <button
+                        key={time}
+                        onClick={() => setSelectedTime(time)}
+                        style={{
+                          padding: "12px 16px",
+                          borderRadius: 12,
+                          border: selected
+                            ? `2px solid ${UC.purple}`
+                            : `1px solid ${UC.border}`,
+                          background: selected ? UC.purpleLight : UC.bg,
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: UC.text,
+                          cursor: "pointer",
+                          minWidth: 110,
+                          transition: "all 0.2s ease"
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!selected) e.currentTarget.style.border = `1px solid ${UC.purple}`;
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!selected) e.currentTarget.style.border = `1px solid ${UC.border}`;
+                        }}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })
+                )}
+
+              </div>
             </>
           )}
         </div>
 
-        {/* Confirm button */}
+        {/* CONFIRM BUTTON */}
         <button
           onClick={handleConfirm}
-          disabled={!selectedTime || loading}
+          disabled={!selectedTime}
           style={{
-            display: "block", width: "100%", padding: "16px 0", border: "none",
-            background: selectedTime && !loading ? "linear-gradient(90deg,#6a4de8,#7b5cfa)" : "#e0e0e0",
-            color: selectedTime && !loading ? "white" : "#aaa",
-            fontWeight: 700, fontSize: 16,
-            cursor: selectedTime && !loading ? "pointer" : "not-allowed",
-            transition: "background 0.2s",
+            width: "100%",
+            padding: 18,
+            background: selectedTime ? UC.purple : "#d9d9d9",
+            color: "white",
+            border: "none",
+            fontSize: 16,
+            fontWeight: 600,
+            cursor: selectedTime ? "pointer" : "not-allowed",
+            transition: "all 0.2s ease"
           }}
         >
           Confirm
@@ -682,7 +735,16 @@ function SelectSlotsModal({ open, onClose, groups, slotSelections, onOpenPicker,
 
   return (
     <AnimatedModal open={open} onClose={onClose}>
-      <div style={{ background: "white", borderRadius: 14, width: 500, maxWidth: "92vw", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,.35)", position: "relative" }}>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          width: 520,
+          maxWidth: "95vw",
+          overflow: "hidden",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.1)"
+        }}
+      >
         <button onClick={onClose} style={{ position: "absolute", zIndex: 10, top: -46, right: 0, width: 36, height: 36, borderRadius: "50%", border: "2px solid #fff", background: "rgba(0,0,0,.65)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><CloseIcon c="white" /></button>
 
         <div style={{ padding: "26px 28px 0" }}>
