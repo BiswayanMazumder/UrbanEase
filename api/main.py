@@ -428,25 +428,23 @@ async def assign_providers_cron():
     try:
         now = datetime.utcnow()
 
-        rows = query("""
+        orders = query("""
             SELECT id, slots
             FROM orders
             WHERE status != 'cancelled'
         """)
 
-        for r in rows:
-            order_id = r[0]
-            slots_map = _safe_json(r[1], {})
+        for order in orders:
+            order_id = order[0]
+            slots_map = _safe_json(order[1], {})
 
             updated = False
 
             for key, slot in slots_map.items():
 
-                # ❌ skip cancelled
                 if slot.get("_cancelled"):
                     continue
 
-                # ✅ ensure provider exists
                 if "provider" not in slot:
                     slot["provider"] = {
                         "name": None,
@@ -454,28 +452,81 @@ async def assign_providers_cron():
                         "assigned_at": None
                     }
 
-                # ❌ skip if already assigned
+                # ❌ Already assigned
                 if slot["provider"]["phone"]:
                     continue
 
-                # ⏱ calculate time
+                # ⏱ Time check
                 try:
                     slot_dt = _slot_datetime(slot)
-                except Exception:
+                except:
                     continue
 
                 hours = (slot_dt - now).total_seconds() / 3600
 
-                # 🎯 ASSIGN if within 24 hrs
-                if 0 < hours <= 24:
-                    slot["provider"] = {
-                        "name": "UrbanEase Pro",
-                        "phone": "+919999999999",   # replace later
-                        "assigned_at": now.isoformat()
-                    }
-                    updated = True
+                if not (0 < hours <= 24):
+                    continue
 
-            # 💾 save only if changed
+                # 🧠 SMART PROVIDER SELECTION
+                providers = query("""
+                    SELECT id, name, phone, rating, total_jobs, last_assigned_at
+                    FROM providers
+                    WHERE is_active = TRUE
+                      AND is_busy = FALSE
+                """)
+
+                best_provider = None
+                best_score = -1
+
+                for p in providers:
+                    pid, name, phone, rating, total_jobs, last_assigned = p
+
+                    idle_hours = 24
+                    if last_assigned:
+                        idle_hours = (now - last_assigned).total_seconds() / 3600
+
+                    idle_score = min(idle_hours / 24, 1)
+
+                    score = (
+                        rating * 0.6 +
+                        (1 / (total_jobs + 1)) * 0.2 +
+                        idle_score * 0.2
+                    )
+
+                    if score > best_score:
+                        best_score = score
+                        best_provider = p
+
+                if not best_provider:
+                    continue
+
+                pid, name, phone, rating, total_jobs, _ = best_provider
+
+                # ✅ Assign provider
+                slot["provider"] = {
+                    "name": name,
+                    "phone": phone,
+                    "assigned_at": now.isoformat()
+                }
+
+                # ✅ Mark provider busy
+                execute("""
+                    UPDATE providers
+                    SET is_busy = TRUE,
+                        last_assigned_at = NOW(),
+                        total_jobs = total_jobs + 1,
+                        current_job_id = %s
+                    WHERE id = %s
+                """, (order_id, pid))
+
+                # ✅ Track assignment
+                execute("""
+                    INSERT INTO provider_assignments (provider_id, order_id, slot_key)
+                    VALUES (%s, %s, %s)
+                """, (pid, order_id, key))
+
+                updated = True
+
             if updated:
                 execute("""
                     UPDATE orders
@@ -483,10 +534,59 @@ async def assign_providers_cron():
                     WHERE id = %s
                 """, (Json(slots_map), order_id))
 
-        return {"status": "success", "message": "Providers assigned"}
+        return {"status": "success", "message": "Smart providers assigned"}
 
     except Exception as e:
         print("❌ CRON ERROR:", str(e))
+        return {"status": "error", "message": str(e)}
+@app.get("/api/cron/release-providers")
+async def release_providers():
+    try:
+        now = datetime.utcnow()
+
+        rows = query("""
+            SELECT pa.id, pa.provider_id, pa.order_id, pa.slot_key, o.slots
+            FROM provider_assignments pa
+            JOIN orders o ON pa.order_id = o.id
+            WHERE pa.job_status = 'assigned'
+        """)
+
+        for r in rows:
+            assign_id, provider_id, order_id, slot_key, slots_raw = r
+
+            slots_map = _safe_json(slots_raw, {})
+            slot = slots_map.get(slot_key)
+
+            if not slot:
+                continue
+
+            try:
+                slot_dt = _slot_datetime(slot)
+            except:
+                continue
+
+            # ⏱ If job time passed → release
+            if now > slot_dt:
+                
+                # ✅ Mark assignment complete
+                execute("""
+                    UPDATE provider_assignments
+                    SET job_status = 'completed'
+                    WHERE id = %s
+                """, (assign_id,))
+
+                # ✅ Free provider
+                execute("""
+                    UPDATE providers
+                    SET is_busy = FALSE,
+                        current_job_id = NULL
+                    WHERE id = %s
+                """, (provider_id,))
+
+        return {"status": "success", "message": "Providers released"}
+
+    except Exception as e:
+        print("❌ RELEASE ERROR:", str(e))
         return {"status": "error", "message": str(e)}
  
 # ─────────────────────────────────────────────────────────────────────────────
