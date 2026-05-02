@@ -279,6 +279,170 @@ async def verify_payment(request: Request):
         "status": "success",
         "message": "Payment verified and order stored"
     }
+@app.get("/api/cron/generate-slots")
+def generate_slots():
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        dates = [(date.today() + timedelta(days=i)) for i in range(0, 14)]
+        times = [
+            "09:00 AM", "11:00 AM", "01:00 PM",
+            "03:00 PM", "05:00 PM", "07:00 PM"
+        ]
+
+        for d in dates:
+            for t in times:
+                cur.execute("""
+                    INSERT INTO slot_inventory (date, time, capacity, base_capacity, available)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (date, time) DO NOTHING
+                """, (d, t, 5, 5, 5))
+
+        conn.commit()
+        cur.close()
+
+        return {"status": "slots generated"}
+
+    finally:
+        release_conn(conn)
+@app.get("/api/cron/sync-slot-inventory")
+def sync_slot_inventory():
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        # 1️⃣ Reset booked count
+        cur.execute("""
+            UPDATE slot_inventory
+            SET booked = 0
+        """)
+
+        # 2️⃣ Recalculate from orders
+        orders = query("""
+            SELECT slots FROM orders WHERE status != 'cancelled'
+        """)
+
+        for o in orders:
+            slots_map = _safe_json(o[0], {})
+
+            for slot in slots_map.values():
+                if slot.get("_cancelled"):
+                    continue
+
+                d = slot.get("date")
+                t = slot.get("time")
+
+                cur.execute("""
+                    UPDATE slot_inventory
+                    SET booked = booked + 1
+                    WHERE date = %s AND time = %s
+                """, (d, t))
+
+        # 3️⃣ Recompute availability
+        cur.execute("""
+            UPDATE slot_inventory
+            SET 
+                available = capacity - booked - locked,
+                is_blocked = CASE 
+                    WHEN capacity - booked - locked <= 0 THEN TRUE
+                    ELSE FALSE
+                END
+        """)
+
+        conn.commit()
+        cur.close()
+
+        return {"status": "slot inventory synced"}
+
+    finally:
+        release_conn(conn)
+@app.get("/api/cron/block-slots")
+def block_slots():
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        now = datetime.utcnow()
+
+        rows = query("SELECT date, time FROM slot_inventory")
+
+        for r in rows:
+            d, t = r
+
+            slot_dt = datetime.fromisoformat(f"{d}T{_convert_to_24(t)}")
+            hours = (slot_dt - now).total_seconds() / 3600
+
+            reason = None
+
+            # 🚫 2 hr cutoff
+            if hours < 2:
+                reason = "cutoff"
+
+            # 🚫 peak overload
+            elif hours < 24:
+                reason = "high_demand"
+
+            if reason:
+                cur.execute("""
+                    UPDATE slot_inventory
+                    SET is_blocked = TRUE,
+                        block_reason = %s
+                    WHERE date = %s AND time = %s
+                """, (reason, d, t))
+
+            else:
+                # ✅ UNBLOCK
+                cur.execute("""
+                    UPDATE slot_inventory
+                    SET is_blocked = FALSE,
+                        block_reason = NULL
+                    WHERE date = %s AND time = %s
+                """, (d, t))
+
+        conn.commit()
+        cur.close()
+
+        return {"status": "slots blocked/unblocked"}
+
+    finally:
+        release_conn(conn)
+@app.get("/api/cron/dynamic-capacity")
+def dynamic_capacity():
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE slot_inventory
+            SET capacity =
+                CASE
+                    WHEN booked >= base_capacity * 0.8 THEN base_capacity + 2
+                    ELSE base_capacity
+                END
+        """)
+
+        conn.commit()
+        cur.close()
+
+        return {"status": "capacity optimized"}
+
+    finally:
+        release_conn(conn)
+@app.post("/api/slots/lock")
+def lock_slot(date: str, time: str):
+    execute("""
+        UPDATE slot_inventory
+        SET locked = locked + 1
+        WHERE date = %s AND time = %s
+        AND available > 0
+    """, (date, time))
+@app.get("/api/cron/unlock-expired")
+def unlock_expired():
+    execute("""
+        UPDATE slot_inventory
+        SET locked = 0
+    """)
 def _convert_to_24(time_str: str) -> str:
     """'07:00 PM' → '19:00'"""
     time, modifier = time_str.strip().split(" ")
