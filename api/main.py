@@ -454,12 +454,8 @@ def _convert_to_24(time_str: str) -> str:
     return f"{h:02d}:{m:02d}"
  
  
-def _slot_datetime(slot):
-    # however you're currently parsing...
-    dt = datetime.strptime(f"{slot['date']} {slot['time']}", "%Y-%m-%d %H:%M")
-    
-    # Add this line — make it timezone-aware
-    return dt.replace(tzinfo=timezone.utc)
+def _slot_datetime(slot: dict) -> datetime:
+    return datetime.fromisoformat(f"{slot['date']}T{_convert_to_24(slot['time'])}").replace(tzinfo=timezone.utc)
  
  
 def _hours_until(slot: dict) -> float:
