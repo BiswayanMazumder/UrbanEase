@@ -362,49 +362,77 @@ def block_slots():
     conn = get_conn()
     try:
         cur = conn.cursor()
+        now = datetime.now(timezone.utc)
 
-        now = now = datetime.now(timezone.utc)
-
-        rows = query("SELECT date, time FROM slot_inventory")
+        cur.execute("""
+            SELECT date, time, available, capacity, booked, locked
+            FROM slot_inventory
+        """)
+        rows = cur.fetchall()
 
         for r in rows:
-            d, t = r
+            d, t, available, capacity, booked, locked = r
 
-            slot_dt = datetime.fromisoformat(f"{d}T{_convert_to_24(t)}")
+            # Build aware datetime for this slot
+            try:
+                slot_dt = datetime.fromisoformat(
+                    f"{d}T{_convert_to_24(t)}"
+                ).replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+
             hours = (slot_dt - now).total_seconds() / 3600
 
+            # ── Determine block reason ─────────────────────────────────────
             reason = None
 
-            # 🚫 2 hr cutoff
-            if hours < 2:
+            if hours <= 0:
+                # Past slot — block permanently
+                reason = "past"
+
+            elif hours < 2:
+                # Hard cutoff — too close to book
                 reason = "cutoff"
 
-            # 🚫 peak overload
-            elif hours < 24:
+            elif available <= 0:
+                # No seats left (booked + locked >= capacity)
+                reason = "full"
+
+            elif hours < 4 and available <= 1:
+                # Last seat + very close — hold for walk-in/emergency
+                reason = "last_seat_hold"
+
+            elif booked >= capacity * 0.9:
+                # 90%+ booked — surge protection
                 reason = "high_demand"
 
+            # ── Apply block or unblock ─────────────────────────────────────
             if reason:
                 cur.execute("""
                     UPDATE slot_inventory
-                    SET is_blocked = TRUE,
+                    SET is_blocked   = TRUE,
                         block_reason = %s
                     WHERE date = %s AND time = %s
                 """, (reason, d, t))
-
             else:
-                # ✅ UNBLOCK
                 cur.execute("""
                     UPDATE slot_inventory
-                    SET is_blocked = FALSE,
+                    SET is_blocked   = FALSE,
                         block_reason = NULL
                     WHERE date = %s AND time = %s
                 """, (d, t))
 
         conn.commit()
         cur.close()
+        return {
+            "status": "success",
+            "message": "Slots blocked/unblocked",
+            "processed": len(rows)
+        }
 
-        return {"status": "slots blocked/unblocked"}
-
+    except Exception as e:
+        print("❌ block-slots ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         release_conn(conn)
 @app.get("/api/cron/dynamic-capacity")
