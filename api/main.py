@@ -363,7 +363,7 @@ def block_slots():
     try:
         cur = conn.cursor()
 
-        now = datetime.utcnow()
+        now = now = datetime.now(timezone.utc)
 
         rows = query("SELECT date, time FROM slot_inventory")
 
@@ -459,7 +459,7 @@ def _slot_datetime(slot: dict) -> datetime:
  
  
 def _hours_until(slot: dict) -> float:
-    return (_slot_datetime(slot) - datetime.utcnow()).total_seconds() / 3600
+    return (_slot_datetime(slot) - datetime.now(timezone.utc)).total_seconds() / 3600
  
  
 def _safe_json(val, default):
@@ -706,7 +706,7 @@ async def assign_providers_cron():
 @app.get("/api/cron/release-providers")
 async def release_providers():
     try:
-        now = datetime.utcnow()
+        now = now = datetime.now(timezone.utc)
 
         rows = query("""
             SELECT pa.id, pa.provider_id, pa.order_id, pa.slot_key, o.slots
@@ -814,11 +814,11 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
  
     # Validate new datetime is in the future
     try:
-        new_dt = datetime.fromisoformat(f"{new_date}T{_convert_to_24(new_time)}")
+        new_dt = datetime.fromisoformat(f"{new_date}T{_convert_to_24(new_time)}").replace(tzinfo=timezone.utc)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid new_date or new_time format")
  
-    if new_dt <= datetime.utcnow():
+    if new_dt <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="New appointment time must be in the future")
  
     # ── ₹100 fee if rescheduling within 24 hrs of CURRENT slot ────────────
@@ -857,7 +857,7 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
     slots_map[slot_key]["time"] = new_time
     # Keep a history trail
     slots_map[slot_key].setdefault("_history", []).append(
-        {"date": old_date, "time": old_time, "rescheduled_at": datetime.utcnow().isoformat()}
+        {"date": old_date, "time": old_time, "rescheduled_at": datetime.now(timezone.utc).isoformat()}
     )
  
     execute(
@@ -1364,7 +1364,7 @@ async def cancel_order(razorpay_order_id: str, request: Request):
                 h = 0
             return f"{h:02d}:{m:02d}"
 
-        now = datetime.utcnow()
+        now = now = datetime.now(timezone.utc)
 
         earliest = min([
             datetime.fromisoformat(f"{s['date']}T{convert_to_24(s['time'])}")
