@@ -9,6 +9,7 @@ import json
 import hmac
 import hashlib
 import asyncio
+from zoneinfo import ZoneInfo
 import time
 from psycopg2.extras import Json
 import razorpay
@@ -19,6 +20,11 @@ import re as _re
 from datetime import date, timedelta,timezone
 
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+SENDER_EMAIL  = os.getenv("SENDER_EMAIL", "noreply@urbanease.in")
+SENDER_NAME   = os.getenv("SENDER_NAME", "Urban Ease")
+IST           = ZoneInfo("Asia/Kolkata")
+
 
 app = FastAPI()
 
@@ -1479,7 +1485,373 @@ async def invalidate_cache(request: Request):
 # ─────────────────────────────────────────────
 #  PUBLIC CATALOGUE ROUTES (backward compat)
 # ─────────────────────────────────────────────
+def _send_email(to_email: str, to_name: str, subject: str, html: str) -> bool:
+    resp = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "api-key":     BREVO_API_KEY,
+            "Content-Type": "application/json"
+        },
+        json={
+            "sender":      {"name": SENDER_NAME, "email": SENDER_EMAIL},
+            "to":          [{"email": to_email, "name": to_name}],
+            "subject":     subject,
+            "htmlContent": html
+        }
+    )
+    if resp.status_code not in (200, 201):
+        print(f"[brevo] failed {resp.status_code}: {resp.text}")
+        return False
+    return True
 
+
+# ─────────────────────────────────────────────
+#  EMAIL TEMPLATES
+# ─────────────────────────────────────────────
+def _html_24hr(user_name, services, date, time, address):
+    rows = "".join(f"""
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #F3F4F6">
+            ✦ {s}
+          </td>
+        </tr>""" for s in services)
+    return f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;
+                background:#ffffff;border-radius:16px;overflow:hidden">
+
+      <div style="background:#7C3AED;padding:32px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:24px">Urban Ease</h1>
+        <p style="color:#DDD6FE;margin:8px 0 0">Appointment Reminder</p>
+      </div>
+
+      <div style="padding:32px">
+        <p style="font-size:18px">Hi <strong>{user_name}</strong> 👋</p>
+        <p style="color:#374151">
+          Your appointment is <strong>tomorrow</strong>. 
+          Here's everything you need to know:
+        </p>
+
+        <div style="background:#F5F3FF;border-radius:12px;
+                    padding:20px;margin:20px 0">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #EDE9FE;
+                         color:#6B7280;width:40%">📅 Date</td>
+              <td style="padding:8px 0;border-bottom:1px solid #EDE9FE;
+                         font-weight:600">{date}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #EDE9FE;
+                         color:#6B7280">⏰ Time</td>
+              <td style="padding:8px 0;border-bottom:1px solid #EDE9FE;
+                         font-weight:600">{time}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#6B7280">📍 Address</td>
+              <td style="padding:8px 0;font-weight:600">{address}</td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-weight:600;margin-bottom:8px">Services booked:</p>
+        <table style="width:100%;border-collapse:collapse">{rows}</table>
+
+        <div style="background:#FEF3C7;border-radius:8px;
+                    padding:16px;margin-top:24px">
+          <p style="margin:0;color:#92400E;font-size:14px">
+            ⚠️ Provider will be assigned shortly. 
+            You'll get another email once assigned.
+          </p>
+        </div>
+
+        <p style="color:#6B7280;font-size:13px;margin-top:24px">
+          Need to reschedule? You can do so up to 24 hours before your appointment 
+          from the app.
+        </p>
+      </div>
+
+      <div style="background:#F9FAFB;padding:16px;text-align:center">
+        <p style="color:#9CA3AF;font-size:12px;margin:0">
+          Urban Ease · Bhubaneswar, Odisha
+        </p>
+      </div>
+    </div>
+    """
+
+
+def _html_provider_assigned(user_name, services, date, time,
+                              provider_name, provider_phone, address):
+    rows = "".join(f"""
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #F3F4F6">
+            ✦ {s}
+          </td>
+        </tr>""" for s in services)
+    return f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;
+                background:#ffffff;border-radius:16px;overflow:hidden">
+
+      <div style="background:#059669;padding:32px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:24px">Urban Ease</h1>
+        <p style="color:#A7F3D0;margin:8px 0 0">Provider Assigned ✓</p>
+      </div>
+
+      <div style="padding:32px">
+        <p style="font-size:18px">Hi <strong>{user_name}</strong> 👋</p>
+        <p style="color:#374151">
+          Great news! Your provider has been assigned for tomorrow's appointment.
+        </p>
+
+        <div style="background:#ECFDF5;border-radius:12px;
+                    padding:20px;margin:20px 0">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         color:#6B7280;width:40%">👤 Provider</td>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         font-weight:600">{provider_name}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         color:#6B7280">📞 Phone</td>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5">
+                <a href="tel:{provider_phone}" 
+                   style="color:#059669;font-weight:600">
+                  {provider_phone}
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         color:#6B7280">📅 Date</td>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         font-weight:600">{date}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         color:#6B7280">⏰ Time</td>
+              <td style="padding:8px 0;border-bottom:1px solid #D1FAE5;
+                         font-weight:600">{time}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#6B7280">📍 Address</td>
+              <td style="padding:8px 0;font-weight:600">{address}</td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-weight:600;margin-bottom:8px">Services:</p>
+        <table style="width:100%;border-collapse:collapse">{rows}</table>
+
+        <div style="background:#EFF6FF;border-radius:8px;
+                    padding:16px;margin-top:24px">
+          <p style="margin:0;color:#1E40AF;font-size:14px">
+            💡 You can call your provider directly if you need to coordinate.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#F9FAFB;padding:16px;text-align:center">
+        <p style="color:#9CA3AF;font-size:12px;margin:0">
+          Urban Ease · Bhubaneswar, Odisha
+        </p>
+      </div>
+    </div>
+    """
+
+
+def _html_30min(user_name, provider_name, provider_phone, time, address):
+    return f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;
+                background:#ffffff;border-radius:16px;overflow:hidden">
+
+      <div style="background:#DC2626;padding:32px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:24px">Urban Ease</h1>
+        <p style="color:#FECACA;margin:8px 0 0">Arriving in 30 minutes 🚀</p>
+      </div>
+
+      <div style="padding:32px">
+        <p style="font-size:18px">Hi <strong>{user_name}</strong>!</p>
+        <p style="color:#374151;font-size:16px">
+          Your provider <strong>{provider_name}</strong> is arriving 
+          in about <strong>30 minutes</strong>.
+        </p>
+
+        <div style="background:#FEF2F2;border-radius:12px;
+                    padding:20px;margin:20px 0">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #FEE2E2;
+                         color:#6B7280;width:40%">⏰ Scheduled</td>
+              <td style="padding:8px 0;border-bottom:1px solid #FEE2E2;
+                         font-weight:600">{time}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #FEE2E2;
+                         color:#6B7280">📍 Address</td>
+              <td style="padding:8px 0;border-bottom:1px solid #FEE2E2;
+                         font-weight:600">{address}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:#6B7280">📞 Call provider</td>
+              <td style="padding:8px 0">
+                <a href="tel:{provider_phone}"
+                   style="background:#DC2626;color:#fff;padding:8px 16px;
+                          border-radius:8px;text-decoration:none;
+                          font-weight:600;display:inline-block">
+                  Call {provider_name}
+                </a>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#F0FDF4;border-radius:8px;
+                    padding:16px;margin-top:8px">
+          <p style="margin:0;color:#166534;font-size:14px">
+            ✅ Please ensure you're home and the area is accessible.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#F9FAFB;padding:16px;text-align:center">
+        <p style="color:#9CA3AF;font-size:12px;margin:0">
+          Urban Ease · Bhubaneswar, Odisha
+        </p>
+      </div>
+    </div>
+    """
+
+
+# ─────────────────────────────────────────────
+#  CRON — runs every 30 min
+# ─────────────────────────────────────────────
+@app.get("/api/cron/send-appointment-reminders")
+async def send_appointment_reminders():
+    try:
+        now    = datetime.now(timezone.utc)
+        stats  = {"24hr": 0, "provider_assigned": 0, "30min": 0, "skipped": 0}
+
+        orders = query("""
+            SELECT 
+                o.id,
+                o.slots,
+                o.cart,
+                o.address,
+                u.email,
+                u.name
+            FROM orders o
+            JOIN users u ON o.firebase_uid = u.firebase_uid
+            WHERE o.status NOT IN ('cancelled', 'expired')
+              AND u.email IS NOT NULL
+        """)
+
+        for order in orders:
+            order_id, slots_raw, cart_raw, \
+                address_raw, user_email, user_name = order
+
+            slots_map   = _safe_json(slots_raw, {})
+            cart        = _safe_json(cart_raw, [])
+            address_obj = _safe_json(address_raw, {})
+            dirty       = False  # track if slots_map changed
+
+            address_str = address_obj.get("full_address", "N/A")
+            if address_obj.get("house_flat"):
+                address_str = address_obj["house_flat"] + ", " + address_str
+
+            services = [
+                i.get("title", "Service")
+                for i in (cart if isinstance(cart, list) else [])
+            ] or ["Home Service"]
+
+            for key, slot in slots_map.items():
+                if slot.get("_cancelled"):
+                    continue
+
+                try:
+                    slot_dt = _slot_datetime(slot)
+                except Exception:
+                    continue
+
+                hours = (slot_dt - now).total_seconds() / 3600
+                if hours <= 0:
+                    continue
+
+                sent = slot.get("_reminders_sent", [])
+
+                slot_dt_ist   = slot_dt.astimezone(IST)
+                readable_date = slot_dt_ist.strftime("%A, %d %B %Y")
+                readable_time = slot_dt_ist.strftime("%I:%M %p") + " IST"
+
+                provider       = slot.get("provider") or {}
+                provider_name  = provider.get("name")
+                provider_phone = provider.get("phone")
+
+                # ── Trigger 1: 24hr reminder ──────────────────────────────
+                if 23 <= hours <= 25 and "24hr" not in sent:
+                    ok = _send_email(
+                        user_email, user_name or "Customer",
+                        "Your appointment is tomorrow 📅",
+                        _html_24hr(
+                            user_name or "there", services,
+                            readable_date, readable_time, address_str
+                        )
+                    )
+                    if ok:
+                        sent.append("24hr")
+                        slot["_reminders_sent"] = sent
+                        dirty = True
+                        stats["24hr"] += 1
+
+                # ── Trigger 2: provider assigned notification ─────────────
+                elif (provider_name and provider_phone
+                        and "provider_assigned" not in sent
+                        and hours > 0.5):
+                    ok = _send_email(
+                        user_email, user_name or "Customer",
+                        f"Your provider {provider_name} is assigned ✓",
+                        _html_provider_assigned(
+                            user_name or "there", services,
+                            readable_date, readable_time,
+                            provider_name, provider_phone, address_str
+                        )
+                    )
+                    if ok:
+                        sent.append("provider_assigned")
+                        slot["_reminders_sent"] = sent
+                        dirty = True
+                        stats["provider_assigned"] += 1
+
+                # ── Trigger 3: 30 min reminder ────────────────────────────
+                if (0.4 <= hours <= 0.6
+                        and "30min" not in sent
+                        and provider_name and provider_phone):
+                    ok = _send_email(
+                        user_email, user_name or "Customer",
+                        f"{provider_name} arrives in 30 min 🚀",
+                        _html_30min(
+                            user_name or "there",
+                            provider_name, provider_phone,
+                            readable_time, address_str
+                        )
+                    )
+                    if ok:
+                        sent.append("30min")
+                        slot["_reminders_sent"] = sent
+                        dirty = True
+                        stats["30min"] += 1
+
+            # Only write to DB if something actually changed
+            if dirty:
+                execute("""
+                    UPDATE orders SET slots = %s WHERE id = %s
+                """, (json.dumps(slots_map), order_id))
+
+        return {"status": "success", **stats}
+
+    except Exception as e:
+        print("❌ REMINDER ERROR:", str(e))
+        return {"status": "error", "message": str(e)}
 @app.get("/api/most-booked")
 @cached(lambda: "most_booked", ttl=600)
 def get_most_booked():
