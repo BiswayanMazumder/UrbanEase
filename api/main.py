@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any, Optional
 from functools import wraps
 import re as _re
-from datetime import date, timedelta
+from datetime import date, timedelta,timezone
 
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 
@@ -590,7 +590,7 @@ async def cancel_slot(razorpay_order_id: str, request: Request):
 @app.get("/api/cron/assign-providers")
 async def assign_providers_cron():
     try:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         orders = query("""
             SELECT id, slots
