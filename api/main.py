@@ -1402,9 +1402,11 @@ async def cancel_order(razorpay_order_id: str, request: Request):
         now = now = datetime.now(timezone.utc)
 
         earliest = min([
-            datetime.fromisoformat(f"{s['date']}T{convert_to_24(s['time'])}")
-            for s in slot_list
-        ])
+    datetime.fromisoformat(
+        f"{s['date']}T{convert_to_24(s['time'])}"
+    ).replace(tzinfo=timezone.utc)
+    for s in slot_list
+])
 
         if earliest - now <= timedelta(hours=24):
             raise HTTPException(
