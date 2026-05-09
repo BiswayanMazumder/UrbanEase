@@ -2094,10 +2094,24 @@ async def get_slots(group: str = "", request: Request = None):
         for i in range(7)
     ]
 
-    # ✅ NEW: fetch from DB
-    times = fetch_slots_from_db(group)
-    if not times:
-        times = _DEFAULT_SLOTS
+    # Fetch configured slot times for this group
+    configured_times = fetch_slots_from_db(group)
+    if not configured_times:
+        configured_times = _DEFAULT_SLOTS
+
+    # Find times that have at least one available (non-blocked) slot
+    # in the next 14 days — if a time is blocked on ALL future dates, exclude it
+    rows = query("""
+        SELECT DISTINCT time
+        FROM slot_inventory
+        WHERE date >= CURRENT_DATE
+          AND is_blocked = FALSE
+          AND available > 0
+    """)
+    times_with_availability = {r[0] for r in rows}
+
+    # Keep only times that have availability on at least one future date
+    times = [t for t in configured_times if t in times_with_availability]
 
     services = []
     duration_label = ""
