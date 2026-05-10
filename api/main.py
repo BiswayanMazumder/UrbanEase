@@ -2030,7 +2030,6 @@ def _duration_label(raw) -> str:
     h, m = divmod(mins, 60)
     return f"{h} hr" if m == 0 else (f"{h} hr {m} mins" if h else f"{mins} mins")
  
- 
 def _fetch_cart_services(firebase_uid: str, group: str) -> tuple[list[dict], str]:
     """
     Joins cart_items with the relevant product tables for `group`.
@@ -2081,24 +2080,35 @@ def fetch_slots_from_db(group: str) -> list[str]:
     
     return [r[0] for r in rows]
 @app.get("/api/slots")
-def get_slots():
-    rows = query("""
-        SELECT 
-            date,
-            time,
-            capacity,
-            base_capacity,
-            available,
-            booked,
-            locked,
-            is_blocked,
-            block_reason
-        FROM slot_inventory
-        ORDER BY date, time
-    """)
+def get_slots(date: str = None):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        
+        if date:
+            cur.execute("""
+                SELECT 
+                    date, time, capacity, base_capacity, available,
+                    booked, locked, is_blocked, block_reason
+                FROM slot_inventory
+                WHERE date = %s
+                ORDER BY time
+            """, (date,))
+        else:
+            cur.execute("""
+                SELECT 
+                    date, time, capacity, base_capacity, available,
+                    booked, locked, is_blocked, block_reason
+                FROM slot_inventory
+                ORDER BY date, time
+            """)
+        
+        rows = cur.fetchall()
+        cur.close()
+    finally:
+        release_conn(conn)
 
     slots = []
-
     for r in rows:
         slot = {
             "date": str(r[0]),
@@ -2111,15 +2121,10 @@ def get_slots():
             "is_blocked": r[7],
             "block_reason": r[8],
         }
-
-        # ✅ only return available + unblocked slots
         if not slot["is_blocked"] and slot["available"] > 0:
             slots.append(slot)
 
-    return {
-        "status": "success",
-        "data": slots
-    }
+    return {"status": "success", "data": slots}
 @app.get("/api/men/services/{category}")
 @cached(lambda category: f"men_services:{category}", ttl=600)
 def get_men_services_by_category(category: str):
