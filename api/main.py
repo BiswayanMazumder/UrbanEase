@@ -884,26 +884,48 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
         except Exception as e:
             print(f"[reschedule] Fee order creation failed (non-blocking): {e}")
  
-    # ── Update slot ────────────────────────────────────────────────────────
-    old_date = slot.get("date")
-    old_time = slot.get("time")
- 
-    slots_map[slot_key]["date"] = new_date
-    slots_map[slot_key]["time"] = new_time
-    # Keep a history trail
-    slots_map[slot_key].setdefault("_history", []).append(
-        {"date": old_date, "time": old_time, "rescheduled_at": datetime.now(timezone.utc).isoformat()}
-    )
- 
-    execute(
-        """
-        UPDATE orders
-        SET slots               = %s::jsonb,
-            reschedule_fee_paid = reschedule_fee_paid OR %s
-        WHERE id = %s
-        """,
-        (json.dumps(slots_map), fee_charged, order_db_id),
-    )
+ # ── Update slot ────────────────────────────────────────────────────────
+        old_date = slot.get("date")
+        old_time = slot.get("time")
+
+        # Grab old provider before clearing
+        old_provider = slots_map[slot_key].get("provider") or {}
+        old_provider_phone = old_provider.get("phone") if isinstance(old_provider, dict) else None
+
+        slots_map[slot_key]["date"] = new_date
+        slots_map[slot_key]["time"] = new_time
+        slots_map[slot_key]["provider"] = {"name": None, "phone": None, "assigned_at": None}
+        slots_map[slot_key]["_reminders_sent"] = []
+        # Keep a history trail
+        slots_map[slot_key].setdefault("_history", []).append(
+            {"date": old_date, "time": old_time, "rescheduled_at": datetime.now(timezone.utc).isoformat()}
+        )
+
+        execute(
+            """
+            UPDATE orders
+            SET slots               = %s::jsonb,
+                reschedule_fee_paid = reschedule_fee_paid OR %s
+            WHERE id = %s
+            """,
+            (json.dumps(slots_map), fee_charged, order_db_id),
+        )
+
+        # ── Release provider in DB ─────────────────────────────────────────────
+        if old_provider_phone:
+            released = query("SELECT id FROM providers WHERE phone = %s", (old_provider_phone,))
+            if released:
+                pid = released[0][0]
+                execute("""
+                    UPDATE providers
+                    SET is_busy = FALSE, current_job_id = NULL
+                    WHERE id = %s
+                """, (pid,))
+                execute("""
+                    UPDATE provider_assignments
+                    SET job_status = 'cancelled'
+                    WHERE provider_id = %s AND order_id = %s
+                """, (pid, order_db_id))
  
     return {
         "status":      "success",
