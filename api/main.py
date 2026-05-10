@@ -1256,8 +1256,7 @@ async def get_ticket_messages(tid: int, request: Request):
                 "sender_type": m[1],
                 "sender_name": m[2],
                 "message": m[3],
-                "is_read": m[4],
-                "created_at": m[5].isoformat() if m[5] else None,
+                "created_at": m[4].isoformat() if m[4] else None,
             }
             for m in messages
         ]
