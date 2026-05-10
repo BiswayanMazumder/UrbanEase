@@ -993,6 +993,7 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
 #  The frontend opens RZP checkout with this order_id, then on success
 #  calls POST /api/orders/{id}/reschedule-slot with the payment proof.
 # ─────────────────────────────────────────────────────────────────────────────
+
  
 @app.post("/api/reschedule-fee/create-order")
 async def create_reschedule_fee_order(request: Request):
@@ -1079,6 +1080,293 @@ def execute(sql: str, params=()):
     finally:
         release_conn(conn)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# USER SUPPORT CHAT APIs ONLY
+# ══════════════════════════════════════════════════════════════════════════════
+
+# REQUIRED TABLES:
+#
+# CREATE TABLE IF NOT EXISTS support_tickets (
+#     id SERIAL PRIMARY KEY,
+#     ticket_id TEXT UNIQUE NOT NULL,
+#     firebase_uid TEXT NOT NULL,
+#     subject TEXT NOT NULL,
+#     category TEXT DEFAULT 'general',
+#     priority TEXT DEFAULT 'medium',
+#     description TEXT NOT NULL,
+#     status TEXT DEFAULT 'open',
+#     created_at TIMESTAMPTZ DEFAULT NOW(),
+#     updated_at TIMESTAMPTZ DEFAULT NOW()
+# );
+#
+# CREATE TABLE IF NOT EXISTS support_ticket_messages (
+#     id SERIAL PRIMARY KEY,
+#     ticket_id INTEGER REFERENCES support_tickets(id) ON DELETE CASCADE,
+#     sender_type TEXT NOT NULL,
+#     sender_name TEXT NOT NULL,
+#     message TEXT NOT NULL,
+#     is_read BOOLEAN DEFAULT FALSE,
+#     created_at TIMESTAMPTZ DEFAULT NOW()
+# );
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET MY TICKETS
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/support/my-tickets")
+async def my_tickets(request: Request):
+
+    user = await verify_firebase_token(request)
+
+    rows = query("""
+        SELECT
+            id,
+            ticket_id,
+            subject,
+            category,
+            priority,
+            status,
+            created_at,
+            updated_at
+        FROM support_tickets
+        WHERE firebase_uid = %s
+        ORDER BY updated_at DESC
+    """, (user["uid"],))
+
+    return {
+        "data": [
+            {
+                "id": r[0],
+                "ticket_id": r[1],
+                "subject": r[2],
+                "category": r[3],
+                "priority": r[4],
+                "status": r[5],
+                "created_at": r[6].isoformat() if r[6] else None,
+                "updated_at": r[7].isoformat() if r[7] else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET SINGLE TICKET
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/support/{tid}")
+async def get_my_ticket(tid: int, request: Request):
+
+    user = await verify_firebase_token(request)
+
+    rows = query("""
+        SELECT
+            t.id,
+            t.ticket_id,
+            t.subject,
+            t.status,
+            t.priority,
+            t.category,
+            t.description,
+            t.created_at,
+            t.updated_at
+        FROM support_tickets t
+        WHERE t.id = %s
+          AND t.firebase_uid = %s
+    """, (tid, user["uid"]))
+
+    if not rows:
+        raise HTTPException(404, "Ticket not found")
+
+    r = rows[0]
+
+    messages = query("""
+        SELECT
+            id,
+            sender_type,
+            sender_name,
+            message,
+            is_read,
+            created_at
+        FROM support_ticket_messages
+        WHERE ticket_id = %s
+        ORDER BY created_at ASC
+    """, (tid,))
+
+    return {
+        "ticket": {
+            "id": r[0],
+            "ticket_id": r[1],
+            "subject": r[2],
+            "status": r[3],
+            "priority": r[4],
+            "category": r[5],
+            "description": r[6],
+            "created_at": r[7].isoformat() if r[7] else None,
+            "updated_at": r[8].isoformat() if r[8] else None,
+        },
+
+        "messages": [
+            {
+                "id": m[0],
+                "sender_type": m[1],
+                "sender_name": m[2],
+                "message": m[3],
+                "is_read": m[4],
+                "created_at": m[5].isoformat() if m[5] else None,
+            }
+            for m in messages
+        ]
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET TICKET MESSAGES
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/support/{tid}/messages")
+async def get_ticket_messages(tid: int, request: Request):
+
+    user = await verify_firebase_token(request)
+
+    rows = query("""
+        SELECT id
+        FROM support_tickets
+        WHERE id = %s
+          AND firebase_uid = %s
+    """, (tid, user["uid"]))
+
+    if not rows:
+        raise HTTPException(404, "Ticket not found")
+
+    messages = query("""
+        SELECT
+            id,
+            sender_type,
+            sender_name,
+            message,
+            is_read,
+            created_at
+        FROM support_ticket_messages
+        WHERE ticket_id = %s
+        ORDER BY created_at ASC
+    """, (tid,))
+
+    return {
+        "messages": [
+            {
+                "id": m[0],
+                "sender_type": m[1],
+                "sender_name": m[2],
+                "message": m[3],
+                "is_read": m[4],
+                "created_at": m[5].isoformat() if m[5] else None,
+            }
+            for m in messages
+        ]
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SEND MESSAGE
+# ─────────────────────────────────────────────────────────────────────────────
+@app.post("/api/support/{tid}/message")
+async def add_ticket_message(tid: int, request: Request):
+
+    user = await verify_firebase_token(request)
+
+    body = await request.json()
+
+    message = body.get("message")
+
+    if not message:
+        raise HTTPException(400, "Message required")
+
+    rows = query("""
+        SELECT id
+        FROM support_tickets
+        WHERE id = %s
+          AND firebase_uid = %s
+    """, (tid, user["uid"]))
+
+    if not rows:
+        raise HTTPException(404, "Ticket not found")
+
+    execute("""
+        INSERT INTO support_ticket_messages(
+            ticket_id,
+            sender_type,
+            sender_name,
+            message
+        )
+        VALUES(%s,%s,%s,%s)
+    """, (
+        tid,
+        "user",
+        user.get("name", "User"),
+        message
+    ))
+
+    execute("""
+        UPDATE support_tickets
+        SET updated_at = NOW()
+        WHERE id = %s
+    """, (tid,))
+
+    return {
+        "ok": True
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MARK ADMIN MESSAGES AS READ
+# ─────────────────────────────────────────────────────────────────────────────
+@app.post("/api/support/{tid}/read")
+async def mark_ticket_read(tid: int, request: Request):
+
+    user = await verify_firebase_token(request)
+
+    rows = query("""
+        SELECT id
+        FROM support_tickets
+        WHERE id = %s
+          AND firebase_uid = %s
+    """, (tid, user["uid"]))
+
+    if not rows:
+        raise HTTPException(404, "Ticket not found")
+
+    execute("""
+        UPDATE support_ticket_messages
+        SET is_read = TRUE
+        WHERE ticket_id = %s
+          AND sender_type = 'admin'
+    """, (tid,))
+
+    return {
+        "ok": True
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET UNREAD MESSAGE COUNT
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/support/unread-count")
+async def unread_count(request: Request):
+
+    user = await verify_firebase_token(request)
+
+    rows = query("""
+        SELECT COUNT(*)
+        FROM support_ticket_messages m
+        JOIN support_tickets t
+          ON t.id = m.ticket_id
+        WHERE t.firebase_uid = %s
+          AND m.sender_type = 'admin'
+          AND m.is_read = FALSE
+    """, (user["uid"],))
+
+    return {
+        "count": int(rows[0][0])
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  BULK BOOTSTRAP ENDPOINT
