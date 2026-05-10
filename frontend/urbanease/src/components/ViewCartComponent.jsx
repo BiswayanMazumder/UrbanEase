@@ -514,10 +514,15 @@ function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
         const res = await fetch(`${BASE}/api/slots?date=${nextDates[0].date}`);
         const data = await res.json();
 
-        const rawSlots = data.slots || [];
+        const rawSlots = (data.data || []).filter(
+  (slot) => !slot.is_blocked && slot.available > 0
+);
 
-        setAllTimes(rawSlots);
-        setTimes(filterTimes(0, nextDates, rawSlots));
+        const slotTimes = [...new Set(rawSlots.map((slot) => slot.time))]
+  .sort((a, b) => parseTimeToMins(a) - parseTimeToMins(b));
+
+        setAllTimes(slotTimes);
+        setTimes(filterTimes(0, nextDates, slotTimes));
       } catch (err) {
         console.error(err);
         setError("Failed to load slots");
@@ -537,9 +542,15 @@ function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
     fetch(`${BASE}/api/slots?date=${selectedDateStr}`)
       .then((res) => res.json())
       .then((data) => {
-        const rawSlots = data.slots || [];
-        setAllTimes(rawSlots);
-        setTimes(filterTimes(selectedDate, dates, rawSlots));
+        const rawSlots = (data.data || []).filter(
+  (slot) => !slot.is_blocked && slot.available > 0
+);
+
+        const slotTimes = [...new Set(rawSlots.map((slot) => slot.time))]
+  .sort((a, b) => parseTimeToMins(a) - parseTimeToMins(b));
+
+        setAllTimes(slotTimes);
+        setTimes(filterTimes(selectedDate, dates, slotTimes));
       })
       .catch(() => setTimes([]));
   }, [selectedDate, dates]);
@@ -554,9 +565,13 @@ function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
       fetch(`${BASE}/api/slots?date=${selectedDateStr}`)
         .then((res) => res.json())
         .then((data) => {
-          const rawSlots = data.slots || [];
-          setAllTimes(rawSlots);
-          setTimes(filterTimes(selectedDate, dates, rawSlots));
+          const rawSlots = (data.data || []).filter(
+  (slot) => !slot.is_blocked && slot.available > 0
+);
+const slotTimes = [...new Set(rawSlots.map((slot) => slot.time))]
+  .sort((a, b) => parseTimeToMins(a) - parseTimeToMins(b));
+setAllTimes(slotTimes);
+setTimes(filterTimes(selectedDate, dates, slotTimes));
         })
     }, 30000);
 
@@ -650,7 +665,7 @@ function SlotPickerModal({ open, onClose, groupLabel, onConfirm }) {
                   );
                 })}
               </div>
-              
+
               <div style={{ padding: "20px 24px 10px" }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: UC.text }}>
                   Select start time of service
