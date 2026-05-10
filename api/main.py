@@ -874,11 +874,6 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
                     "slot_key":          slot_key,
                 },
             })
-            # NOTE: In a real flow you'd return the fee_order to the frontend so the
-            # user pays it via Razorpay checkout. For simplicity here we record the
-            # intent and let the frontend handle the payment popup separately.
-            # We mark reschedule_fee_paid = TRUE only after successful payment webhook.
-            # For now we proceed optimistically (remove this if you want strict flow).
             fee_charged = True
             print(f"[reschedule] Fee order created: {fee_order.get('id')}")
         except Exception as e:
@@ -910,6 +905,22 @@ async def reschedule_slot(razorpay_order_id: str, request: Request):
             """,
             (json.dumps(slots_map), fee_charged, order_db_id),
         )
+
+        # ── Release provider in DB ─────────────────────────────────────────────
+        if old_provider_phone:
+            released = query("SELECT id FROM providers WHERE phone = %s", (old_provider_phone,))
+            if released:
+                pid = released[0][0]
+                execute("""
+                    UPDATE providers
+                    SET is_busy = FALSE, current_job_id = NULL
+                    WHERE id = %s
+                """, (pid,))
+                execute("""
+                    UPDATE provider_assignments
+                    SET job_status = 'cancelled'
+                    WHERE provider_id = %s AND order_id = %s
+                """, (pid, order_db_id))
 
         # ── Release provider in DB ─────────────────────────────────────────────
         if old_provider_phone:
