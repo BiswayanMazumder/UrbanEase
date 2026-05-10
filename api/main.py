@@ -2081,106 +2081,44 @@ def fetch_slots_from_db(group: str) -> list[str]:
     
     return [r[0] for r in rows]
 @app.get("/api/slots")
-async def get_slots(group: str = "", selected_date: str = "", request: Request = None):
-
-    today = date.today()
-
-    # Fetch configured slot times
-    configured_times = fetch_slots_from_db(group)
-    if not configured_times:
-        configured_times = _DEFAULT_SLOTS
-
-    # -----------------------------
-    # FILTER DATES
-    # Only show dates having at least one
-    # unblocked slot with availability
-    # -----------------------------
-    valid_date_rows = query("""
-        SELECT DISTINCT date
+def get_slots():
+    rows = query("""
+        SELECT 
+            date,
+            time,
+            capacity,
+            base_capacity,
+            available,
+            booked,
+            locked,
+            is_blocked,
+            block_reason
         FROM slot_inventory
-        WHERE date >= CURRENT_DATE
-          AND is_blocked = FALSE
-          AND available > 0
-        ORDER BY date
+        ORDER BY date, time
     """)
 
-    valid_dates = {r[0].isoformat() for r in valid_date_rows}
+    slots = []
 
-    dates = [
-        {
-            "date": (d := today + timedelta(days=i)).isoformat(),
-            "day": DAY_ABBR[d.weekday()],
-            "num": d.day,
-            "month": MONTH_ABBR[d.month - 1],
+    for r in rows:
+        slot = {
+            "date": str(r[0]),
+            "time": r[1],
+            "capacity": r[2],
+            "base_capacity": r[3],
+            "available": r[4],
+            "booked": r[5],
+            "locked": r[6],
+            "is_blocked": r[7],
+            "block_reason": r[8],
         }
-        for i in range(7)
-        if (today + timedelta(days=i)).isoformat() in valid_dates
-    ]
 
-    # -----------------------------
-    # FILTER SLOTS
-    # -----------------------------
-    times = []
-
-    if selected_date:
-
-        rows = query("""
-            SELECT time
-            FROM slot_inventory
-            WHERE date = %s
-              AND is_blocked = FALSE
-              AND available > 0
-        """, (selected_date,))
-
-        available_times = {r[0] for r in rows}
-
-        times = [
-            t for t in configured_times
-            if t in available_times
-        ]
-
-    else:
-        # Default: show globally available slots
-        rows = query("""
-            SELECT DISTINCT time
-            FROM slot_inventory
-            WHERE date >= CURRENT_DATE
-              AND is_blocked = FALSE
-              AND available > 0
-        """)
-
-        available_times = {r[0] for r in rows}
-
-        times = [
-            t for t in configured_times
-            if t in available_times
-        ]
-
-    services = []
-    duration_label = ""
-
-    auth_header = request.headers.get("Authorization", "") if request else ""
-
-    if auth_header.startswith("Bearer "):
-        try:
-            payload = await verify_firebase_token(request)
-            firebase_uid = payload["uid"]
-
-            services, duration_label = _fetch_cart_services(
-                firebase_uid,
-                group
-            )
-
-        except Exception as exc:
-            print(f"[slots] personalisation skipped: {exc}")
+        # ✅ only return available + unblocked slots
+        if not slot["is_blocked"] and slot["available"] > 0:
+            slots.append(slot)
 
     return {
         "status": "success",
-        "group": group,
-        "duration_label": duration_label or "60 mins",
-        "dates": dates,
-        "slots": times,
-        "services": services,
+        "data": slots
     }
 @app.get("/api/men/services/{category}")
 @cached(lambda category: f"men_services:{category}", ttl=600)
