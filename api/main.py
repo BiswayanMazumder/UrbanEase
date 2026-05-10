@@ -1243,7 +1243,6 @@ async def get_ticket_messages(tid: int, request: Request):
             sender_type,
             sender_name,
             message,
-            is_read,
             created_at
         FROM support_ticket_messages
         WHERE ticket_id = %s
