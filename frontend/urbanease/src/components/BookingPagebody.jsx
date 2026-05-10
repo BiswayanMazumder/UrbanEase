@@ -735,7 +735,13 @@ export default function BookingPageBody() {
             setOrders(prev => prev.map(o => {
               if (o.id !== order.id) return o;
               const s = { ...safeParse(o.slots, {}) };
-              s[slotKey] = { ...s[slotKey], date: newDate, time: newTime };
+              s[slotKey] = {
+                ...s[slotKey],
+                date: newDate,
+                time: newTime,
+                provider: { name: null, phone: null, assigned_at: null },
+                _reminders_sent: [],
+              };
               return { ...o, slots: s };
             }));
             setRescheduleTarget(null);
@@ -784,7 +790,13 @@ export default function BookingPageBody() {
       setOrders(prev => prev.map(o => {
         if (o.id !== order.id) return o;
         const s = { ...safeParse(o.slots, {}) };
-        s[slotKey] = { ...s[slotKey], date: newDate, time: newTime };
+        s[slotKey] = {
+          ...s[slotKey],
+          date: newDate,
+          time: newTime,
+          provider: { name: null, phone: null, assigned_at: null },
+          _reminders_sent: [],
+        };
         return { ...o, slots: s };
       }));
       setRescheduleTarget(null);
