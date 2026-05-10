@@ -5,6 +5,7 @@ import MenSalonAndSpa from "./pages/MenSalonPrime";
 import BathroomCleaning from "./pages/BathroomCleaning";
 import ViewCartPage from "./pages/ViewCartPage";
 import BookingPage from "./pages/BookingPage";
+import HelpCenter from "./pages/HelpCenter";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/bathroom-cleaning" element={<BathroomCleaning />} />
         <Route path="/checkout" element={<ViewCartPage />} />
         <Route path="/bookings" element={<BookingPage />} />
+        <Route path="/help" element={<HelpCenter />} />
       </Routes>
     </BrowserRouter>
   );
