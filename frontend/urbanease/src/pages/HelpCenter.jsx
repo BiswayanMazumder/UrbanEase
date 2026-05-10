@@ -8,7 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-const API_BASE = 'https://urban-ease-theta.vercel.app/';
+const API_BASE = 'https://urban-ease-theta.vercel.app';
 
 // ─── Styles ────────────────────────────────────────────────────────────────
 
